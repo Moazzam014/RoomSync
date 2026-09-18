@@ -1,0 +1,141 @@
+RoomFlow/
+│
+├── backend/
+│   │
+│   ├── app/
+│   │   │
+│   │   ├── main.py
+│   │   │
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   ├── database.py
+│   │   │   └── security.py
+│   │   │
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── user.py
+│   │   │   ├── room.py
+│   │   │   ├── member.py
+│   │   │   ├── task.py
+│   │   │   ├── rotation.py
+│   │   │   ├── presence.py
+│   │   │   └── notification.py
+│   │   │
+│   │   ├── schemas/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py
+│   │   │   ├── room.py
+│   │   │   ├── member.py
+│   │   │   ├── task.py
+│   │   │   ├── presence.py
+│   │   │   └── rotation.py
+│   │   │
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py
+│   │   │   ├── rooms.py
+│   │   │   ├── members.py
+│   │   │   ├── tasks.py
+│   │   │   ├── presence.py
+│   │   │   ├── workflow.py
+│   │   │   └── notifications.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── room_service.py
+│   │   │   ├── member_service.py
+│   │   │   ├── task_service.py
+│   │   │   ├── workflow_service.py
+│   │   │   └── notification_service.py
+│   │   │
+│   │   ├── engine/
+│   │   │   ├── __init__.py
+│   │   │   ├── eligibility_engine.py
+│   │   │   ├── rotation_engine.py
+│   │   │   ├── fairness_engine.py
+│   │   │   └── assignment_engine.py
+│   │   │
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       └── helpers.py
+│   │
+│   ├── requirements.txt
+│   ├── .env
+│   └── .gitignore
+│
+├── frontend/
+│   │
+│   ├── public/
+│   │   └── assets/
+│   │
+│   ├── src/
+│   │   │
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   │   ├── Button.jsx
+│   │   │   │   ├── Input.jsx
+│   │   │   │   ├── Modal.jsx
+│   │   │   │   └── Loader.jsx
+│   │   │   │
+│   │   │   ├── layout/
+│   │   │   │   ├── Sidebar.jsx
+│   │   │   │   ├── Header.jsx
+│   │   │   │   └── MainLayout.jsx
+│   │   │   │
+│   │   │   ├── dashboard/
+│   │   │   │   ├── TaskCard.jsx
+│   │   │   │   ├── RoomStatus.jsx
+│   │   │   │   ├── FairnessCard.jsx
+│   │   │   │   └── ActivityFeed.jsx
+│   │   │   │
+│   │   │   └── onboarding/
+│   │   │       ├── RoomSetup.jsx
+│   │   │       ├── MemberSetup.jsx
+│   │   │       ├── TaskSetup.jsx
+│   │   │       └── RuleSetup.jsx
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── Rooms.jsx
+│   │   │   ├── Tasks.jsx
+│   │   │   ├── Members.jsx
+│   │   │   ├── Activity.jsx
+│   │   │   └── Settings.jsx
+│   │   │
+│   │   ├── services/
+│   │   │   ├── api.js
+│   │   │   ├── roomService.js
+│   │   │   ├── memberService.js
+│   │   │   └── taskService.js
+│   │   │
+│   │   ├── hooks/
+│   │   │   └── useRoom.js
+│   │   │
+│   │   ├── styles/
+│   │   │   ├── globals.css
+│   │   │   ├── variables.css
+│   │   │   └── animations.css
+│   │   │
+│   │   ├── App.jsx
+│   │   │
+│   │   └── main.jsx
+│   │
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── .gitignore
+│
+├── docs/
+│   ├── architecture.md
+│   ├── api.md
+│   └── workflow.md
+│
+├── .gitignore
+└── README.md
+
+
+
+
+
+to rum server 
+uvicorn app.main:app --reload
