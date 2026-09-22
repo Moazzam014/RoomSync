@@ -6,6 +6,7 @@ from app.core.database import Base, SessionLocal
 
 # Import all models before creating tables
 from app.models import (
+    User,
     Room,
     Member,
     Task,
@@ -23,6 +24,8 @@ from app.api.presence import router as presence_router
 from app.api.notifications import router as notifications_router
 from app.api.auth import router as auth_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.invitations import router as invitations_router
+from app.api.my_rooms import router as my_rooms_router
 
 Base.metadata.create_all(bind=SessionLocal.kw["bind"])
 
@@ -51,8 +54,9 @@ app.include_router(workflow_router)
 app.include_router(presence_router)
 app.include_router(notifications_router)
 app.include_router(auth_router)
+app.include_router(invitations_router)
+app.include_router(my_rooms_router)
 
-@app.get("/")
 def root():
     return {
         "message": "RoomSync backend is running successfully!"

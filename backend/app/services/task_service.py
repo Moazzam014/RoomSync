@@ -4,12 +4,16 @@ from app.models.task import Task
 from app.schemas.task import TaskCreate
 
 
-def create_task(db: Session, task_data: TaskCreate):
+def create_task(
+    db: Session,
+    task_data: TaskCreate
+):
     task = Task(
         name=task_data.name,
         description=task_data.description,
         frequency=task_data.frequency,
         room_id=task_data.room_id,
+        is_active=True,
     )
 
     db.add(task)
@@ -19,15 +23,27 @@ def create_task(db: Session, task_data: TaskCreate):
     return task
 
 
-def get_tasks_by_room(db: Session, room_id: int):
+def get_tasks_by_room(
+    db: Session,
+    room_id: int
+):
     return (
         db.query(Task)
-        .filter(Task.room_id == room_id)
+        .filter(
+            Task.room_id == room_id,
+            Task.is_active == True,
+        )
+        .order_by(
+            Task.created_at.desc()
+        )
         .all()
     )
 
 
-def get_task(db: Session, task_id: int):
+def get_task(
+    db: Session,
+    task_id: int
+):
     return (
         db.query(Task)
         .filter(Task.id == task_id)
@@ -70,7 +86,10 @@ def update_task(
     return task
 
 
-def deactivate_task(db: Session, task_id: int):
+def deactivate_task(
+    db: Session,
+    task_id: int
+):
     task = (
         db.query(Task)
         .filter(Task.id == task_id)

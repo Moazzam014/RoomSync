@@ -1,50 +1,82 @@
-import { ArrowLeft, ArrowRight, Home, Sparkles } from "lucide-react";
 import { useState } from "react";
+import {
+  ArrowLeft,
+  Check,
+  DoorOpen,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
 import { createRoom } from "../services/roomService";
 
 function CreateRoomPage() {
   const navigate = useNavigate();
 
-  const [roomName, setRoomName] = useState("");
-  const [description, setDescription] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+  });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleCreateRoom = async (event) => {
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    setError("");
+    const roomName = form.name.trim();
+    const description = form.description.trim();
 
-    if (!roomName.trim()) {
+    if (!roomName) {
       setError("Please enter a room name.");
       return;
     }
 
-    setLoading(true);
+    if (roomName.length < 3) {
+      setError(
+        "Room name must be at least 3 characters."
+      );
+      return;
+    }
 
     try {
+      setLoading(true);
+      setError("");
+
       const room = await createRoom({
-        name: roomName.trim(),
-        description: description.trim() || null,
+        name: roomName,
+        description: description || null,
       });
 
-      navigate(`/dashboard/${room.id}`);
-    } catch (err) {
-      console.error("Create room error:", err);
-
-      if (err.response?.data?.detail) {
-        setError(
-          typeof err.response.data.detail === "string"
-            ? err.response.data.detail
-            : "Unable to create room."
-        );
-      } else {
-        setError(
-          "Unable to connect to RoomSync backend. Make sure the backend is running."
-        );
+      if (room?.id) {
+        navigate(`/dashboard/${room.id}`, {
+          replace: true,
+        });
+        return;
       }
+
+      navigate("/start", {
+        replace: true,
+      });
+    } catch (err) {
+      console.error(
+        "Create room error:",
+        err
+      );
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to create room. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -52,120 +84,187 @@ function CreateRoomPage() {
 
   return (
     <main className="create-room-page">
-      <nav className="navbar">
-        <div className="brand">
-          <div className="brand-mark">R</div>
-          <span>RoomSync</span>
-        </div>
+      <div className="create-room-shell">
 
-        <button
-          className="nav-button"
-          onClick={() => navigate("/")}
-        >
-          Home
-        </button>
-      </nav>
+        {/* HEADER */}
 
-      <section className="create-room-container">
-        <button
-          className="back-button"
-          onClick={() => navigate("/")}
-        >
-          <ArrowLeft size={17} />
-          Back
-        </button>
+        <header className="create-room-header">
 
-        <div className="create-room-card">
-          <div className="create-room-icon">
-            <Home size={25} />
-          </div>
+          <button
+            type="button"
+            className="create-room-back"
+            onClick={() => navigate("/start")}
+          >
+            <ArrowLeft size={17} />
+            Back to Overview
+          </button>
 
-          <div className="create-room-badge">
-            <Sparkles size={15} />
-            Start your workspace
-          </div>
-
-          <h1>
-            Create your
-            <span> RoomSync room.</span>
-          </h1>
-
-          <p className="create-room-description">
-            Set up your shared space and let RoomSync handle
-            members, tasks and fair task rotation.
-          </p>
-
-          <form onSubmit={handleCreateRoom}>
-            <div className="form-group">
-              <label htmlFor="roomName">
-                Room name
-              </label>
-
-              <input
-                id="roomName"
-                type="text"
-                placeholder="e.g. Room 302"
-                value={roomName}
-                onChange={(event) =>
-                  setRoomName(event.target.value)
-                }
-                maxLength={100}
-                disabled={loading}
-                autoFocus
-              />
+          <div className="create-room-brand">
+            <div className="create-room-brand-mark">
+              R
             </div>
 
-            <div className="form-group">
-              <label htmlFor="description">
-                Description
-                <span>Optional</span>
-              </label>
-
-              <textarea
-                id="description"
-                placeholder="e.g. Shared room for our college group"
-                value={description}
-                onChange={(event) =>
-                  setDescription(event.target.value)
-                }
-                maxLength={255}
-                rows={4}
-                disabled={loading}
-              />
+            <div>
+              <strong>RoomSync</strong>
+              <span>Team Workspace</span>
             </div>
+          </div>
+
+        </header>
+
+        {/* CONTENT */}
+
+        <section className="create-room-content">
+
+          <div className="create-room-intro">
+
+            <div className="create-room-icon">
+              <DoorOpen size={27} />
+            </div>
+
+            <span className="create-room-eyebrow">
+              NEW WORKSPACE
+            </span>
+
+            <h1>
+              Create a Room
+            </h1>
+
+            <p>
+              Set up a workspace for your team
+              and invite members when you're ready.
+            </p>
+
+          </div>
+
+          {/* FORM */}
+
+          <form
+            className="create-room-form"
+            onSubmit={handleSubmit}
+          >
 
             {error && (
-              <div className="form-error">
+              <div className="create-room-error">
                 {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              className="primary-button create-room-submit"
-              disabled={loading}
-            >
-              {loading ? (
-                "Creating room..."
-              ) : (
-                <>
-                  Create Room
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
+            <div className="create-room-field">
+
+              <label htmlFor="room-name">
+                Room Name
+              </label>
+
+              <input
+                id="room-name"
+                name="name"
+                type="text"
+                placeholder="e.g. Project Alpha"
+                value={form.name}
+                onChange={handleChange}
+                maxLength={100}
+                autoFocus
+                disabled={loading}
+              />
+
+              <span>
+                Choose a clear name your team
+                will recognize.
+              </span>
+
+            </div>
+
+            <div className="create-room-field">
+
+              <label htmlFor="room-description">
+                Description
+                <small>Optional</small>
+              </label>
+
+              <textarea
+                id="room-description"
+                name="description"
+                placeholder="What is this room for?"
+                value={form.description}
+                onChange={handleChange}
+                maxLength={500}
+                rows={5}
+                disabled={loading}
+              />
+
+              <span>
+                Add a short description to give
+                your teammates some context.
+              </span>
+
+            </div>
+
+            {/* INFO */}
+
+            <div className="create-room-info">
+
+              <div className="create-room-info-icon">
+                <Sparkles size={17} />
+              </div>
+
+              <div>
+                <strong>
+                  Your workspace starts here
+                </strong>
+
+                <p>
+                  After creating the room, you can
+                  invite registered RoomSync users
+                  from the Members section.
+                </p>
+              </div>
+
+            </div>
+
+            {/* BUTTONS */}
+
+            <div className="create-room-actions">
+
+              <button
+                type="button"
+                className="create-room-cancel"
+                onClick={() =>
+                  navigate("/start")
+                }
+                disabled={loading}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="create-room-submit"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2
+                      size={17}
+                      className="create-room-spinner"
+                    />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Check size={17} />
+                    Create Room
+                  </>
+                )}
+              </button>
+
+            </div>
+
           </form>
 
-          <div className="create-room-note">
-            <div className="note-dot" />
+        </section>
 
-            <p>
-              You can add your members and daily tasks
-              after creating the room.
-            </p>
-          </div>
-        </div>
-      </section>
+      </div>
     </main>
   );
 }

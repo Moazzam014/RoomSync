@@ -1,385 +1,635 @@
+import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   CheckCircle2,
   ClipboardList,
   LayoutDashboard,
+  RefreshCw,
+  ShieldCheck,
+  UserPlus,
   Users,
-  Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-const API_URL = "http://127.0.0.1:8000";
+import { getRoom } from "../services/roomService";
+import { getRoomMembers } from "../services/memberService";
+import { getRoomTasks } from "../services/taskService";
+import LogoutButton from "../components/common/LogoutButton";
 
 function DashboardPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
 
   const [room, setRoom] = useState(null);
-  const [tasks, setTasks] = useState([]);
   const [members, setMembers] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadDashboard() {
+  const loadDashboard = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const roomResult = await getRoom(roomId);
+
+      setRoom(roomResult);
+
       try {
-        setLoading(true);
-        setError("");
+        const membersResult =
+          await getRoomMembers(roomId);
 
-        const [roomResponse, tasksResponse, membersResponse] =
-          await Promise.all([
-            fetch(`${API_URL}/rooms/${roomId}`),
-            fetch(`${API_URL}/tasks/room/${roomId}`),
-            fetch(`${API_URL}/members/room/${roomId}`),
-          ]);
+        setMembers(
+          Array.isArray(membersResult)
+            ? membersResult
+            : []
+        );
+      } catch (memberError) {
+        console.error(
+          "Members loading error:",
+          memberError
+        );
 
-        if (!roomResponse.ok) {
-          throw new Error("Room could not be loaded.");
-        }
-
-        if (!tasksResponse.ok) {
-          throw new Error("Tasks could not be loaded.");
-        }
-
-        if (!membersResponse.ok) {
-          throw new Error("Members could not be loaded.");
-        }
-
-        const roomData = await roomResponse.json();
-        const tasksData = await tasksResponse.json();
-        const membersData = await membersResponse.json();
-
-        setRoom(roomData);
-        setTasks(tasksData);
-        setMembers(membersData);
-      } catch (err) {
-        console.error(err);
-        setError(err.message || "Something went wrong.");
-      } finally {
-        setLoading(false);
+        setMembers([]);
       }
-    }
 
-    if (roomId) {
-      loadDashboard();
+      try {
+        const tasksResult =
+          await getRoomTasks(roomId);
+
+        setTasks(
+          Array.isArray(tasksResult)
+            ? tasksResult
+            : []
+        );
+      } catch (taskError) {
+        console.error(
+          "Tasks loading error:",
+          taskError
+        );
+
+        setTasks([]);
+      }
+    } catch (err) {
+      console.error(
+        "Dashboard loading error:",
+        err
+      );
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to load this room."
+      );
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadDashboard();
   }, [roomId]);
 
   const completedTasks = tasks.filter(
-    (task) => task.is_completed === true
-  );
+    (task) =>
+      task.status === "completed" ||
+      task.status === "done"
+  ).length;
 
-  const activeMembers = members.filter(
-    (member) => member.is_active !== false
-  );
-
-  const completionPercentage =
-    tasks.length > 0
-      ? Math.round((completedTasks.length / tasks.length) * 100)
-      : 0;
+  const pendingTasks =
+    Math.max(tasks.length - completedTasks, 0);
 
   if (loading) {
     return (
       <main className="dashboard-page">
-        <section className="dashboard-main">
-          <div className="dashboard-panel">
-            <h2>Loading RoomSync...</h2>
-            <p>Getting your room data.</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="dashboard-page">
-        <section className="dashboard-main">
-          <div className="dashboard-panel">
-            <h2>Unable to load dashboard</h2>
-            <p>{error}</p>
-
-            <button
-              className="primary-button"
-              onClick={() => navigate("/")}
-              style={{ marginTop: "20px" }}
-            >
-              Back to Home
-            </button>
-          </div>
-        </section>
+        <div className="dashboard-loading">
+          <RefreshCw
+            size={24}
+            className="dashboard-spin"
+          />
+          <span>
+            Loading room dashboard...
+          </span>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="dashboard-page">
-      {/* SIDEBAR */}
-      <aside className="dashboard-sidebar">
-        <div className="brand dashboard-brand">
-          <div className="brand-mark">R</div>
-          <span>RoomSync</span>
-        </div>
+      <div className="dashboard-shell">
 
-        <nav className="dashboard-nav">
-          {/* OVERVIEW */}
-          <button
-            className="dashboard-nav-item active"
-            onClick={() => navigate(`/dashboard/${roomId}`)}
-          >
-            <LayoutDashboard size={19} />
-            Overview
-          </button>
+        {/* SIDEBAR */}
 
-          {/* TASKS */}
-          <button className="dashboard-nav-item">
-            <ClipboardList size={19} />
-            Tasks
-          </button>
+        <aside className="dashboard-sidebar">
 
-          {/* MEMBERS */}
-          <button
-            className="dashboard-nav-item"
-            onClick={() => navigate(`/dashboard/${roomId}/members`)}
-          >
-            <Users size={19} />
-            Members
-          </button>
+          <div className="dashboard-brand">
+            <div className="dashboard-brand-mark">
+              R
+            </div>
 
-          {/* SMART FLOW */}
-          <button className="dashboard-nav-item">
-            <Zap size={19} />
-            Smart Flow
-          </button>
-        </nav>
+            <div>
+              <strong>
+                RoomSync
+              </strong>
 
-        <div className="sidebar-bottom">
-          <div className="room-mini">
-            <span>ROOM</span>
-            <strong>
-              {room?.name || `Room ${roomId}`}
-            </strong>
-          </div>
-        </div>
-      </aside>
-
-      {/* MAIN */}
-      <section className="dashboard-main">
-        <header className="dashboard-header">
-          <div>
-            <span className="eyebrow">
-              ROOM {roomId} · TODAY
-            </span>
-
-            <h1>Good evening 👋</h1>
-
-            <p>
-              Here's what's happening in{" "}
-              {room?.name || "your room"}.
-            </p>
+              <span>
+                Team Workspace
+              </span>
+            </div>
           </div>
 
-          <button className="notification-button">
-            <Bell size={20} />
-            <span />
-          </button>
-        </header>
+          <nav className="dashboard-nav">
 
-        {/* STATS */}
-        <div className="dashboard-stats">
-          {/* TODAY'S TASKS */}
-          <div className="dashboard-stat">
-            <span>Today's tasks</span>
+            <button
+              type="button"
+              className="dashboard-nav-item active"
+            >
+              <LayoutDashboard size={18} />
+              <span>Dashboard</span>
+            </button>
 
-            <strong>
-              {String(tasks.length).padStart(2, "0")}
-            </strong>
+            <button
+              type="button"
+              className="dashboard-nav-item"
+              onClick={() =>
+                navigate(
+                  `/dashboard/${roomId}/members`
+                )
+              }
+            >
+              <Users size={18} />
+              <span>Members</span>
+            </button>
 
-            <small>
-              {tasks.length === 0
-                ? "No tasks yet"
-                : `${tasks.length - completedTasks.length} remaining`}
-            </small>
+            <button
+              type="button"
+              className="dashboard-nav-item"
+              onClick={() =>
+                navigate(
+                  `/dashboard/${roomId}/tasks`
+                )
+              }
+            >
+              <ClipboardList size={18} />
+              <span>Tasks</span>
+            </button>
+
+            <button
+              type="button"
+              className="dashboard-nav-item"
+              onClick={() =>
+                navigate("/invitations")
+              }
+            >
+              <Bell size={18} />
+              <span>Invitations</span>
+            </button>
+
+          </nav>
+
+          <div className="dashboard-sidebar-bottom">
+
+            <button
+              type="button"
+              className="dashboard-nav-item"
+              onClick={() =>
+                navigate("/start")
+              }
+            >
+              <ArrowLeft size={18} />
+              <span>Overview</span>
+            </button>
+
+            <LogoutButton />
+
           </div>
 
-          {/* COMPLETED */}
-          <div className="dashboard-stat">
-            <span>Completed</span>
+        </aside>
 
-            <strong>
-              {String(completedTasks.length).padStart(2, "0")}
-            </strong>
+        {/* MAIN CONTENT */}
 
-            <small>
-              {tasks.length === 0
-                ? "No tasks yet"
-                : `${completionPercentage}% complete`}
-            </small>
-          </div>
+        <section className="dashboard-main">
 
-          {/* MEMBERS */}
-          <div className="dashboard-stat">
-            <span>Members online</span>
+          {/* HEADER */}
 
-            <strong>
-              {String(activeMembers.length).padStart(2, "0")}
-            </strong>
+          <header className="dashboard-topbar">
 
-            <small>
-              {members.length === 0
-                ? "No members yet"
-                : `${members.length} member${
-                    members.length === 1 ? "" : "s"
-                  } in room`}
-            </small>
-          </div>
+            <div>
+              <span className="dashboard-eyebrow">
+                ROOM DASHBOARD
+              </span>
 
-          {/* FAIRNESS */}
-          <div className="dashboard-stat">
-            <span>Fairness score</span>
+              <h1>
+                {room?.name ||
+                  `Room #${roomId}`}
+              </h1>
 
-            <strong>—</strong>
+              <p>
+                Manage your team, tasks and
+                workflow from one place.
+              </p>
+            </div>
 
-            <small>
-              {members.length > 0
-                ? "Calculated by Smart Flow"
-                : "Not enough data"}
-            </small>
-          </div>
-        </div>
+            <button
+              type="button"
+              className="dashboard-refresh-button"
+              onClick={loadDashboard}
+            >
+              <RefreshCw size={17} />
+              Refresh
+            </button>
 
-        {/* LOWER GRID */}
-        <div className="dashboard-grid">
-          {/* TASK WORKFLOW */}
-          <section className="dashboard-panel tasks-panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-eyebrow">
-                  TODAY
-                </span>
+          </header>
 
-                <h2>Task workflow</h2>
+          {/* ERROR */}
+
+          {error && (
+            <div className="dashboard-error">
+              {error}
+
+              <button
+                type="button"
+                onClick={loadDashboard}
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* ROOM CARD */}
+
+          <section className="dashboard-room-card">
+
+            <div className="dashboard-room-left">
+
+              <div className="dashboard-room-icon">
+                <ShieldCheck size={25} />
               </div>
 
-              <button className="text-button">
+              <div>
+                <span>
+                  Active Workspace
+                </span>
+
+                <h2>
+                  {room?.name ||
+                    `Room #${roomId}`}
+                </h2>
+
+                <p>
+                  {room?.description ||
+                    "Your RoomSync team workspace is ready."}
+                </p>
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              className="dashboard-manage-button"
+              onClick={() =>
+                navigate(
+                  `/dashboard/${roomId}/members`
+                )
+              }
+            >
+              <UserPlus size={17} />
+              Manage Team
+            </button>
+
+          </section>
+
+          {/* STATS */}
+
+          <section className="dashboard-stats">
+
+            <div className="dashboard-stat-card">
+              <div className="dashboard-stat-icon">
+                <Users size={20} />
+              </div>
+
+              <div>
+                <span>
+                  Team Members
+                </span>
+
+                <strong>
+                  {members.length}
+                </strong>
+              </div>
+            </div>
+
+            <div className="dashboard-stat-card">
+              <div className="dashboard-stat-icon">
+                <ClipboardList size={20} />
+              </div>
+
+              <div>
+                <span>
+                  Total Tasks
+                </span>
+
+                <strong>
+                  {tasks.length}
+                </strong>
+              </div>
+            </div>
+
+            <div className="dashboard-stat-card">
+              <div className="dashboard-stat-icon">
+                <CheckCircle2 size={20} />
+              </div>
+
+              <div>
+                <span>
+                  Completed
+                </span>
+
+                <strong>
+                  {completedTasks}
+                </strong>
+              </div>
+            </div>
+
+            <div className="dashboard-stat-card">
+              <div className="dashboard-stat-icon">
+                <ClipboardList size={20} />
+              </div>
+
+              <div>
+                <span>
+                  Pending
+                </span>
+
+                <strong>
+                  {pendingTasks}
+                </strong>
+              </div>
+            </div>
+
+          </section>
+
+          {/* QUICK ACTIONS */}
+
+          <section className="dashboard-section">
+
+            <div className="dashboard-section-heading">
+              <div>
+                <span>
+                  WORKSPACE
+                </span>
+
+                <h2>
+                  Quick Actions
+                </h2>
+              </div>
+            </div>
+
+            <div className="dashboard-actions-grid">
+
+              <button
+                type="button"
+                className="dashboard-action-card"
+                onClick={() =>
+                  navigate(
+                    `/dashboard/${roomId}/members`
+                  )
+                }
+              >
+                <div className="dashboard-action-icon">
+                  <Users size={21} />
+                </div>
+
+                <div>
+                  <strong>
+                    Manage Members
+                  </strong>
+
+                  <span>
+                    Invite and manage teammates.
+                  </span>
+                </div>
+
+                <ArrowLeft
+                  size={17}
+                  className="dashboard-action-arrow"
+                />
+              </button>
+
+              <button
+                type="button"
+                className="dashboard-action-card"
+                onClick={() =>
+                  navigate(
+                    `/dashboard/${roomId}/tasks`
+                  )
+                }
+              >
+                <div className="dashboard-action-icon">
+                  <ClipboardList size={21} />
+                </div>
+
+                <div>
+                  <strong>
+                    Manage Tasks
+                  </strong>
+
+                  <span>
+                    Create and manage room tasks.
+                  </span>
+                </div>
+
+                <ArrowLeft
+                  size={17}
+                  className="dashboard-action-arrow"
+                />
+              </button>
+
+              <button
+                type="button"
+                className="dashboard-action-card"
+                onClick={() =>
+                  navigate("/invitations")
+                }
+              >
+                <div className="dashboard-action-icon">
+                  <Bell size={21} />
+                </div>
+
+                <div>
+                  <strong>
+                    Invitations
+                  </strong>
+
+                  <span>
+                    View pending invitations.
+                  </span>
+                </div>
+
+                <ArrowLeft
+                  size={17}
+                  className="dashboard-action-arrow"
+                />
+              </button>
+
+              <button
+                type="button"
+                className="dashboard-action-card"
+                onClick={() =>
+                  navigate("/start")
+                }
+              >
+                <div className="dashboard-action-icon">
+                  <ArrowLeft size={21} />
+                </div>
+
+                <div>
+                  <strong>
+                    Overview
+                  </strong>
+
+                  <span>
+                    Return to your workspace overview.
+                  </span>
+                </div>
+
+                <ArrowLeft
+                  size={17}
+                  className="dashboard-action-arrow"
+                />
+              </button>
+
+            </div>
+
+          </section>
+
+          {/* RECENT TASKS */}
+
+          <section className="dashboard-section">
+
+            <div className="dashboard-section-heading">
+
+              <div>
+                <span>
+                  TASK OVERVIEW
+                </span>
+
+                <h2>
+                  Recent Tasks
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="dashboard-view-all"
+                onClick={() =>
+                  navigate(
+                    `/dashboard/${roomId}/tasks`
+                  )
+                }
+              >
                 View all
               </button>
+
             </div>
 
             {tasks.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "55px 20px",
-                  color: "#777",
-                }}
-              >
-                <ClipboardList
-                  size={38}
-                  style={{ marginBottom: "12px" }}
-                />
+              <div className="dashboard-empty">
 
-                <h3
-                  style={{
-                    margin: "0 0 6px",
-                    color: "#101114",
-                  }}
-                >
+                <ClipboardList size={30} />
+
+                <h3>
                   No tasks yet
                 </h3>
 
-                <p style={{ margin: 0 }}>
-                  Create your first task to get started.
+                <p>
+                  Create your first task for
+                  this room.
                 </p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/dashboard/${roomId}/tasks`
+                    )
+                  }
+                >
+                  Create Task
+                </button>
+
               </div>
             ) : (
-              tasks.slice(0, 5).map((task) => {
-                const isCompleted =
-                  task.is_completed === true;
+              <div className="dashboard-task-list">
 
-                return (
-                  <div
-                    className="dashboard-task"
-                    key={task.id}
-                  >
-                    <div className="task-left">
+                {tasks
+                  .slice(0, 5)
+                  .map((task) => {
+
+                    const isCompleted =
+                      task.status ===
+                        "completed" ||
+                      task.status === "done";
+
+                    return (
                       <div
-                        className={`task-check ${
-                          isCompleted
-                            ? "done"
-                            : "pending"
-                        }`}
+                        className="dashboard-task-row"
+                        key={task.id}
                       >
-                        {isCompleted ? (
-                          <CheckCircle2 size={18} />
-                        ) : (
-                          <ClipboardList size={18} />
-                        )}
-                      </div>
 
-                      <div>
-                        <strong>{task.name}</strong>
+                        <div className="dashboard-task-main">
 
-                        <span>
-                          {task.description ||
-                            "No description"}
+                          <div className="dashboard-task-dot">
+                            {isCompleted ? (
+                              <CheckCircle2
+                                size={17}
+                              />
+                            ) : (
+                              <ClipboardList
+                                size={17}
+                              />
+                            )}
+                          </div>
+
+                          <div>
+                            <strong>
+                              {task.title ||
+                                `Task #${task.id}`}
+                            </strong>
+
+                            <span>
+                              {task.description ||
+                                "Room task"}
+                            </span>
+                          </div>
+
+                        </div>
+
+                        <span
+                          className={`dashboard-task-status ${
+                            isCompleted
+                              ? "completed"
+                              : "pending"
+                          }`}
+                        >
+                          {isCompleted
+                            ? "Completed"
+                            : task.status ||
+                              "Pending"}
                         </span>
+
                       </div>
-                    </div>
+                    );
+                  })}
 
-                    <span
-                      className={
-                        isCompleted
-                          ? "completed-tag"
-                          : "assigned-tag"
-                      }
-                    >
-                      {isCompleted
-                        ? "Completed"
-                        : "Active"}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </section>
-
-          {/* SMART FLOW */}
-          <section className="dashboard-panel flow-panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-eyebrow">
-                  SMART FLOW
-                </span>
-
-                <h2>Fairness</h2>
               </div>
+            )}
 
-              <Zap size={20} />
-            </div>
-
-            <div className="fairness-circle">
-              <strong>—</strong>
-              <span>/100</span>
-            </div>
-
-            <p>
-              {members.length === 0
-                ? "Add members to start the Smart Flow."
-                : "Fairness will be calculated from actual task assignments and completion history."}
-            </p>
-
-            <div className="fairness-bar">
-              <span
-                style={{
-                  width: "0%",
-                }}
-              />
-            </div>
           </section>
-        </div>
-      </section>
+
+        </section>
+      </div>
     </main>
   );
 }

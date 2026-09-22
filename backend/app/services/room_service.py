@@ -1,20 +1,40 @@
 from sqlalchemy.orm import Session
 
+from app.models.member import Member
 from app.models.room import Room
+from app.models.user import User
 from app.schemas.room import RoomCreate, RoomUpdate
 
 
 def create_room(
     db: Session,
-    room_data: RoomCreate
+    room_data: RoomCreate,
+    current_user: User,
 ) -> Room:
 
     new_room = Room(
         name=room_data.name,
-        description=room_data.description
+        description=room_data.description,
     )
 
     db.add(new_room)
+    db.flush()
+
+    # Automatically make the creator the first room member.
+    creator_member = Member(
+        name=(
+            current_user.full_name
+            or current_user.username
+        ),
+        room_id=new_room.id,
+        user_id=current_user.id,
+        is_active=True,
+        is_irregular=False,
+        total_tasks_completed=0,
+    )
+
+    db.add(creator_member)
+
     db.commit()
     db.refresh(new_room)
 
@@ -23,7 +43,7 @@ def create_room(
 
 def get_room(
     db: Session,
-    room_id: int
+    room_id: int,
 ) -> Room | None:
 
     return (
@@ -33,13 +53,37 @@ def get_room(
     )
 
 
-def get_all_rooms(
-    db: Session
+def get_user_rooms(
+    db: Session,
+    user_id: int,
 ) -> list[Room]:
 
     return (
         db.query(Room)
-        .order_by(Room.created_at.desc())
+        .join(
+            Member,
+            Member.room_id == Room.id,
+        )
+        .filter(
+            Member.user_id == user_id,
+            Member.is_active == True,
+        )
+        .order_by(
+            Room.created_at.desc()
+        )
+        .all()
+    )
+
+
+def get_all_rooms(
+    db: Session,
+) -> list[Room]:
+
+    return (
+        db.query(Room)
+        .order_by(
+            Room.created_at.desc()
+        )
         .all()
     )
 
@@ -47,7 +91,7 @@ def get_all_rooms(
 def update_room(
     db: Session,
     room: Room,
-    room_data: RoomUpdate
+    room_data: RoomUpdate,
 ) -> Room:
 
     update_data = room_data.model_dump(
@@ -65,7 +109,7 @@ def update_room(
 
 def delete_room(
     db: Session,
-    room: Room
+    room: Room,
 ) -> None:
 
     db.delete(room)

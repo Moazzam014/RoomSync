@@ -1,6 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -12,77 +19,88 @@ class Member(Base):
     id = Column(
         Integer,
         primary_key=True,
-        index=True
+        index=True,
     )
 
     name = Column(
         String(100),
-        nullable=False
+        nullable=False,
     )
 
     room_id = Column(
         Integer,
         ForeignKey("rooms.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
 
     is_active = Column(
         Boolean,
         default=True,
-        nullable=False
+        nullable=False,
     )
 
     is_irregular = Column(
         Boolean,
         default=False,
-        nullable=False
+        nullable=False,
     )
 
     total_tasks_completed = Column(
         Integer,
         default=0,
-        nullable=False
+        nullable=False,
     )
 
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
-        nullable=False
+        nullable=False,
     )
 
     updated_at = Column(
         DateTime,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
-        nullable=False
+        nullable=False,
     )
 
     room = relationship(
         "Room",
-        back_populates="members"
+        back_populates="members",
+    )
+
+    user = relationship(
+        "User",
     )
 
     presences = relationship(
         "Presence",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     rotations = relationship(
         "Rotation",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     task_exemptions = relationship(
         "TaskExemption",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     notifications = relationship(
         "Notification",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )

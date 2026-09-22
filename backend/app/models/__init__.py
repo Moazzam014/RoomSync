@@ -1,3 +1,4 @@
+from app.models.user import User
 from app.models.room import Room
 from app.models.member import Member
 from app.models.task import Task
