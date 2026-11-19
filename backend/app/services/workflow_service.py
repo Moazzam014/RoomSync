@@ -1,7 +1,7 @@
-from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.core.datetime_utils import utcnow_naive
 from app.models.member import Member
 from app.models.rotation import Rotation
 from app.models.task import Task
@@ -15,7 +15,7 @@ def get_room_workflow(
         db.query(Task)
         .filter(
             Task.room_id == room_id,
-            Task.is_active == True,
+            Task.is_active.is_(True),
         )
         .all()
     )
@@ -42,7 +42,7 @@ def get_active_rotations(
         db.query(Rotation)
         .filter(
             Rotation.room_id == room_id,
-            Rotation.is_completed == False,
+            Rotation.is_completed.is_(False),
         )
         .order_by(Rotation.assigned_at.asc())
         .all()
@@ -67,7 +67,7 @@ def complete_rotation(
 
     rotation.is_completed = True
     rotation.status = "completed"
-    rotation.completed_at = datetime.utcnow()
+    rotation.completed_at = utcnow_naive()
 
     member = (
         db.query(Member)

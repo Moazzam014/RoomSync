@@ -1,9 +1,9 @@
-from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.datetime_utils import utcnow_naive
 
 
 class Task(Base):
@@ -15,57 +15,38 @@ class Task(Base):
         Integer,
         ForeignKey("rooms.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
-    name = Column(
-        String(100),
-        nullable=False
-    )
+    name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
 
-    description = Column(
-        String(255),
-        nullable=True
-    )
-
-    frequency = Column(
-        String(50),
-        default="daily",
-        nullable=False
-    )
-
-    is_active = Column(
-        Boolean,
-        default=True,
-        nullable=False
-    )
+    frequency = Column(String(50), default="daily", nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        nullable=False
+        default=utcnow_naive,
+        nullable=False,
     )
 
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False
+        default=utcnow_naive,
+        onupdate=utcnow_naive,
+        nullable=False,
     )
 
-    room = relationship(
-        "Room",
-        back_populates="tasks"
-    )
+    room = relationship("Room", back_populates="tasks")
 
     exemptions = relationship(
         "TaskExemption",
         back_populates="task",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     rotations = relationship(
         "Rotation",
         back_populates="task",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )

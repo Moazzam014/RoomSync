@@ -1,14 +1,19 @@
-from fastapi import APIRouter, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
+from app.api.auth import get_current_user
+from app.core.database import get_db
 from app.engine.rotation_engine import assign_task
+from app.models.member import Member
+from app.models.rotation import Rotation
+from app.models.user import User
+from app.schemas.rotation import RotationResponse
 from app.services.workflow_service import (
     get_room_workflow,
     get_active_rotations,
     complete_rotation,
 )
-from app.schemas.rotation import RotationResponse
 
 
 router = APIRouter(
@@ -17,41 +22,67 @@ router = APIRouter(
 )
 
 
-def get_db():
-    return SessionLocal()
+def verify_room_membership(
+    db: Session,
+    room_id: int,
+    user_id: int,
+):
+    membership = (
+        db.query(Member)
+        .filter(
+            Member.room_id == room_id,
+            Member.user_id == user_id,
+            Member.is_active == True,
+        )
+        .first()
+    )
 
-
-@router.get(
-    "/room/{room_id}",
-)
-def get_workflow(room_id: int):
-    db: Session = get_db()
-
-    try:
-        return get_room_workflow(
-            db=db,
-            room_id=room_id,
+    if not membership:
+        raise HTTPException(
+            status_code=404,
+            detail="Room not found or access denied.",
         )
 
-    finally:
-        db.close()
+    return membership
+
+
+@router.get("/room/{room_id}")
+def get_workflow(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    verify_room_membership(
+        db=db,
+        room_id=room_id,
+        user_id=current_user.id,
+    )
+
+    return get_room_workflow(
+        db=db,
+        room_id=room_id,
+    )
 
 
 @router.get(
     "/room/{room_id}/active",
     response_model=list[RotationResponse],
 )
-def get_active_workflow(room_id: int):
-    db: Session = get_db()
+def get_active_workflow(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    verify_room_membership(
+        db=db,
+        room_id=room_id,
+        user_id=current_user.id,
+    )
 
-    try:
-        return get_active_rotations(
-            db=db,
-            room_id=room_id,
-        )
-
-    finally:
-        db.close()
+    return get_active_rotations(
+        db=db,
+        room_id=room_id,
+    )
 
 
 @router.post(
@@ -61,30 +92,32 @@ def get_active_workflow(room_id: int):
 def assign_workflow_task(
     room_id: int,
     task_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db: Session = get_db()
+    verify_room_membership(
+        db=db,
+        room_id=room_id,
+        user_id=current_user.id,
+    )
 
-    try:
-        rotation = assign_task(
-            db=db,
-            room_id=room_id,
-            task_id=task_id,
+    rotation = assign_task(
+        db=db,
+        room_id=room_id,
+        task_id=task_id,
+    )
+
+    if not rotation:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Task could not be assigned. "
+                "Check task, room, members, "
+                "eligibility and exemptions."
+            ),
         )
 
-        if not rotation:
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    "Task could not be assigned. "
-                    "Check task, room, members, "
-                    "eligibility and exemptions."
-                ),
-            )
-
-        return rotation
-
-    finally:
-        db.close()
+    return rotation
 
 
 @router.patch(
@@ -93,22 +126,55 @@ def assign_workflow_task(
 )
 def complete_workflow_rotation(
     rotation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    db: Session = get_db()
+    rotation = (
+        db.query(Rotation)
+        .filter(Rotation.id == rotation_id)
+        .first()
+    )
 
-    try:
-        rotation = complete_rotation(
-            db=db,
-            rotation_id=rotation_id,
+    if not rotation:
+        raise HTTPException(
+            status_code=404,
+            detail="Rotation not found.",
         )
 
-        if not rotation:
-            raise HTTPException(
-                status_code=404,
-                detail="Rotation not found",
-            )
+    # Verify the logged-in user belongs to this room.
+    verify_room_membership(
+        db=db,
+        room_id=rotation.room_id,
+        user_id=current_user.id,
+    )
 
-        return rotation
+    # Only the user assigned to this rotation can complete it.
+    assigned_member = (
+        db.query(Member)
+        .filter(
+            Member.id == rotation.member_id,
+            Member.room_id == rotation.room_id,
+            Member.user_id == current_user.id,
+            Member.is_active == True,
+        )
+        .first()
+    )
 
-    finally:
-        db.close()
+    if not assigned_member:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not assigned to this task.",
+        )
+
+    completed_rotation = complete_rotation(
+        db=db,
+        rotation_id=rotation_id,
+    )
+
+    if not completed_rotation:
+        raise HTTPException(
+            status_code=404,
+            detail="Rotation not found.",
+        )
+
+    return completed_rotation

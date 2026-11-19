@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from app.core.security import (
     get_user_id_from_token,
     hash_password,
     verify_password,
+    needs_rehash,
 )
 from app.models.user import User
 from app.schemas.auth import (
@@ -123,6 +125,12 @@ def login(
             status_code=403,
             detail="This account is inactive.",
         )
+
+    # Automatically upgrade legacy SHA-256 hashes to Argon2id.
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(data.password)
+        db.commit()
+        db.refresh(user)
 
     token = create_access_token(user.id)
 

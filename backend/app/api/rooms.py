@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,46 @@ router = APIRouter(
     prefix="/rooms",
     tags=["Rooms"],
 )
+
+
+def require_room_member(
+    db: Session,
+    room_id: int,
+    user_id: int,
+):
+    member = room_service.get_active_member(
+        db=db,
+        room_id=room_id,
+        user_id=user_id,
+    )
+
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Room not found.",
+        )
+
+    return member
+
+
+def require_room_owner(
+    db: Session,
+    room_id: int,
+    user_id: int,
+):
+    member = require_room_member(
+        db=db,
+        room_id=room_id,
+        user_id=user_id,
+    )
+
+    if member.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the room owner can perform this action.",
+        )
+
+    return member
 
 
 @router.post(
@@ -58,6 +99,12 @@ def get_room(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_room_member(
+        db=db,
+        room_id=room_id,
+        user_id=current_user.id,
+    )
+
     room = room_service.get_room(
         db=db,
         room_id=room_id,
@@ -66,7 +113,7 @@ def get_room(
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Room not found",
+            detail="Room not found.",
         )
 
     return room
@@ -82,6 +129,12 @@ def update_room(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_room_owner(
+        db=db,
+        room_id=room_id,
+        user_id=current_user.id,
+    )
+
     room = room_service.get_room(
         db=db,
         room_id=room_id,
@@ -90,7 +143,7 @@ def update_room(
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Room not found",
+            detail="Room not found.",
         )
 
     return room_service.update_room(
@@ -109,6 +162,12 @@ def delete_room(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_room_owner(
+        db=db,
+        room_id=room_id,
+        user_id=current_user.id,
+    )
+
     room = room_service.get_room(
         db=db,
         room_id=room_id,
@@ -117,7 +176,7 @@ def delete_room(
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Room not found",
+            detail="Room not found.",
         )
 
     room_service.delete_room(

@@ -1,9 +1,9 @@
-from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.datetime_utils import utcnow_naive
 
 
 class Presence(Base):
@@ -15,22 +15,18 @@ class Presence(Base):
         Integer,
         ForeignKey("members.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
-    is_present = Column(
-        Boolean,
-        default=True,
-        nullable=False
-    )
+    is_present = Column(Boolean, default=True, nullable=False)
 
     recorded_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        nullable=False
+        default=utcnow_naive,
+        nullable=False,
     )
 
     member = relationship(
         "Member",
-        back_populates="presences"
+        back_populates="presences",
     )

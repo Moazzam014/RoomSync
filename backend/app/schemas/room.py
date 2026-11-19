@@ -1,3 +1,4 @@
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,13 +9,13 @@ class RoomBase(BaseModel):
         ...,
         min_length=1,
         max_length=100,
-        examples=["Room 302"]
+        examples=["Room 302"],
     )
 
     description: str | None = Field(
         default=None,
         max_length=255,
-        examples=["Room management and task rotation"]
+        examples=["Room management and task rotation"],
     )
 
 
@@ -26,12 +27,12 @@ class RoomUpdate(BaseModel):
     name: str | None = Field(
         default=None,
         min_length=1,
-        max_length=100
+        max_length=100,
     )
 
     description: str | None = Field(
         default=None,
-        max_length=255
+        max_length=255,
     )
 
 
@@ -41,5 +42,5 @@ class RoomResponse(RoomBase):
     updated_at: datetime
 
     model_config = ConfigDict(
-        from_attributes=True
+        from_attributes=True,
     )

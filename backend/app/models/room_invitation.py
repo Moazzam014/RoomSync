@@ -1,9 +1,9 @@
-from datetime import datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.datetime_utils import utcnow_naive
 
 
 class RoomInvitation(Base):
@@ -32,22 +32,15 @@ class RoomInvitation(Base):
         index=True,
     )
 
-    status = Column(
-        String(20),
-        default="pending",
-        nullable=False,
-    )
+    status = Column(String(20), default="pending", nullable=False)
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow,
+        default=utcnow_naive,
         nullable=False,
     )
 
-    responded_at = Column(
-        DateTime,
-        nullable=True,
-    )
+    responded_at = Column(DateTime, nullable=True)
 
     room = relationship("Room")
 

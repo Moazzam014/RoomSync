@@ -1,36 +1,43 @@
-from datetime import datetime, timedelta, timezone
 
+from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
+
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, VerificationError
 from jose import JWTError, jwt
 
 from app.core.config import settings
 
 
 ALGORITHM = "HS256"
-
-# Development secret.
-# Production mein ise environment variable mein rakhna.
-SECRET_KEY = getattr(
-    settings,
-    "SECRET_KEY",
-    "roomsync-development-secret-change-this-later",
-)
-
+SECRET_KEY = settings.SECRET_KEY
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+
+password_hasher = PasswordHasher()
 
 
 def hash_password(password: str) -> str:
-    import hashlib
+    return password_hasher.hash(password)
 
-    return hashlib.sha256(
+
+def verify_password(password: str, password_hash: str) -> bool:
+    if password_hash.startswith("$argon2"):
+        try:
+            return password_hasher.verify(password_hash, password)
+        except (VerifyMismatchError, VerificationError):
+            return False
+
+    # Backward compatibility for existing SHA-256 passwords.
+    legacy_hash = hashlib.sha256(
         password.encode("utf-8")
     ).hexdigest()
 
+    return hmac.compare_digest(legacy_hash, password_hash)
 
-def verify_password(
-    password: str,
-    password_hash: str,
-) -> bool:
-    return hash_password(password) == password_hash
+
+def needs_rehash(password_hash: str) -> bool:
+    return not password_hash.startswith("$argon2")
 
 
 def create_access_token(user_id: int) -> str:
@@ -43,11 +50,7 @@ def create_access_token(user_id: int) -> str:
         "exp": expire,
     }
 
-    return jwt.encode(
-        payload,
-        SECRET_KEY,
-        algorithm=ALGORITHM,
-    )
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def get_user_id_from_token(token: str) -> int:
