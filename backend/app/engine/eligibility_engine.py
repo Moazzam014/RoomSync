@@ -1,3 +1,4 @@
+
 from sqlalchemy.orm import Session
 
 from app.models.member import Member
@@ -13,7 +14,7 @@ def get_eligible_members(
         db.query(Member)
         .filter(
             Member.room_id == room_id,
-            Member.is_active == True,
+            Member.is_active.is_(True),
         )
         .all()
     )
@@ -22,7 +23,7 @@ def get_eligible_members(
         db.query(TaskExemption)
         .filter(
             TaskExemption.task_id == task_id,
-            TaskExemption.is_active == True,
+            TaskExemption.is_active.is_(True),
         )
         .all()
     )

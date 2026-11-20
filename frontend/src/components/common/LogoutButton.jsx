@@ -1,13 +1,13 @@
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { logout } from "../../services/authService";
+
 function LogoutButton() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("roomsync_token");
-    localStorage.removeItem("roomsync_user");
-
+    logout();
     navigate("/login", { replace: true });
   };
 

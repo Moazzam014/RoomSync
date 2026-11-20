@@ -1,3 +1,4 @@
+
 import api from "./api";
 
 export const getRoomTasks = async (roomId) => {
@@ -22,8 +23,7 @@ export const createTask = async (taskData) => {
     {
       name: taskData.name,
       description: taskData.description || null,
-      frequency:
-        taskData.frequency || "daily",
+      frequency: taskData.frequency || "daily",
       room_id: Number(taskData.room_id),
     }
   );
@@ -31,45 +31,30 @@ export const createTask = async (taskData) => {
   return response.data;
 };
 
-export const updateTask = async (
-  taskId,
-  taskData
-) => {
-  const params = {};
+export const updateTask = async (taskId, taskData) => {
+  const payload = {};
 
   if (taskData.name !== undefined) {
-    params.name = taskData.name;
+    payload.name = taskData.name;
   }
 
   if (taskData.description !== undefined) {
-    params.description =
-      taskData.description;
+    payload.description = taskData.description;
   }
 
   if (taskData.frequency !== undefined) {
-    params.frequency =
-      taskData.frequency;
-  }
-
-  if (taskData.is_active !== undefined) {
-    params.is_active =
-      taskData.is_active;
+    payload.frequency = taskData.frequency;
   }
 
   const response = await api.patch(
     `/tasks/${taskId}`,
-    null,
-    {
-      params,
-    }
+    payload
   );
 
   return response.data;
 };
 
-export const deactivateTask = async (
-  taskId
-) => {
+export const deactivateTask = async (taskId) => {
   const response = await api.delete(
     `/tasks/${taskId}`
   );

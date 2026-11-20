@@ -62,6 +62,7 @@ def complete_rotation(
     if not rotation:
         return None
 
+    # Prevent counting the same completion more than once.
     if rotation.is_completed:
         return rotation
 

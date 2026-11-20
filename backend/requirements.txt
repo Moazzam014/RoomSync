@@ -1,6 +1,8 @@
+
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.14.2
+argon2-cffi==25.1.0
 cffi==2.1.1
 click==8.5.0
 cryptography==50.0.2
@@ -8,8 +10,10 @@ ecdsa==0.19.2
 fastapi==0.141.1
 greenlet==3.5.5
 h11==0.16.0
+httpx==0.28.1
 httptools==0.8.0
 idna==3.19
+alembic==1.20.1
 psycopg2-binary==2.9.12
 pyasn1==0.6.4
 pycparser==3.11
@@ -19,6 +23,7 @@ pydantic_core==2.46.5
 python-dotenv==1.2.3
 python-jose==3.5.0
 PyYAML==6.0.3
+pytest==9.1.1
 rsa==4.9.1
 six==1.17.0
 SQLAlchemy==2.0.52
@@ -28,10 +33,3 @@ typing_extensions==4.16.0
 uvicorn==0.52.4
 watchfiles==1.2.0
 websockets==17.1
-argon2-cffi==25.1.0
-pytest==9.1.1
-httpx==0.28.1alembic==1.20.1
-argon2-cffi==25.1.0
-pytest==9.1.1
-httpx==0.28.1
-alembic==1.20.1

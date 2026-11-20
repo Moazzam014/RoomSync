@@ -32,7 +32,7 @@ def verify_room_membership(
         .filter(
             Member.room_id == room_id,
             Member.user_id == user_id,
-            Member.is_active == True,
+            Member.is_active.is_(True),
         )
         .first()
     )
@@ -95,6 +95,7 @@ def assign_workflow_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Any active room member can trigger assignment.
     verify_room_membership(
         db=db,
         room_id=room_id,
@@ -141,21 +142,19 @@ def complete_workflow_rotation(
             detail="Rotation not found.",
         )
 
-    # Verify the logged-in user belongs to this room.
     verify_room_membership(
         db=db,
         room_id=rotation.room_id,
         user_id=current_user.id,
     )
 
-    # Only the user assigned to this rotation can complete it.
     assigned_member = (
         db.query(Member)
         .filter(
             Member.id == rotation.member_id,
             Member.room_id == rotation.room_id,
             Member.user_id == current_user.id,
-            Member.is_active == True,
+            Member.is_active.is_(True),
         )
         .first()
     )

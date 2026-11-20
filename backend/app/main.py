@@ -1,13 +1,15 @@
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
 
-# Import all models before creating tables
+# Import all models before creating tables.
 from app.models import (
     User,
     Room,
@@ -19,7 +21,7 @@ from app.models import (
     TaskExemption,
 )
 
-# Import API routers
+# Import API routers.
 from app.api.rooms import router as rooms_router
 from app.api.members import router as members_router
 from app.api.tasks import router as tasks_router
@@ -33,37 +35,32 @@ from app.api.my_rooms import router as my_rooms_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables automatically only in development.
-    # Tests and production must use controlled database setup/migrations.
+    # Automatic table creation is development-only.
+    # Production and test databases use controlled migrations/setup.
     if settings.APP_ENV == "development":
         Base.metadata.create_all(bind=engine)
 
     yield
-
-    # Application shutdown cleanup can be added here if required.
 
 
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
     lifespan=lifespan,
+    debug=settings.DEBUG,
 )
 
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Register API routers
+# Register API routers.
 app.include_router(rooms_router)
 app.include_router(members_router)
 app.include_router(tasks_router)
@@ -75,7 +72,6 @@ app.include_router(invitations_router)
 app.include_router(my_rooms_router)
 
 
-# Root endpoint
 @app.get("/")
 def root():
     return {
@@ -83,13 +79,11 @@ def root():
     }
 
 
-# Health check endpoint
 @app.get("/health")
 def health_check():
-    db = SessionLocal()
-
     try:
-        db.execute(text("SELECT 1"))
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
 
         return {
             "status": "healthy",
@@ -97,10 +91,10 @@ def health_check():
         }
 
     except Exception:
-        return {
-            "status": "unhealthy",
-            "database": "disconnected",
-        }
-
-    finally:
-        db.close()
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+            },
+        )

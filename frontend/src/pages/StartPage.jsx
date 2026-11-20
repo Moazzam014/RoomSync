@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   Bell,
@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import { getRooms } from "../services/roomService";
+import { getStoredUser } from "../services/authService";
 
 function StartPage() {
   const navigate = useNavigate();
@@ -18,33 +19,17 @@ function StartPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const currentUser = (() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("roomsync_user") || "null"
-      );
-    } catch {
-      return null;
-    }
-  })();
+  const currentUser = getStoredUser();
 
-  const loadRooms = async () => {
+  const fetchRooms = useCallback(async () => {
     try {
-      setLoading(true);
       setError("");
 
       const data = await getRooms();
 
-      setRooms(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+      setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(
-        "Start page rooms error:",
-        err
-      );
+      console.error("Start page rooms error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -53,17 +38,21 @@ function StartPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadRooms = async () => {
+    setLoading(true);
+    await fetchRooms();
   };
 
   useEffect(() => {
-    loadRooms();
-  }, []);
+    fetchRooms();
+  }, [fetchRooms]);
 
   return (
     <main className="start-page">
       <div className="start-shell">
 
-        {/* HEADER */}
         <header className="start-header">
 
           <div className="start-brand">
@@ -82,9 +71,7 @@ function StartPage() {
             <button
               type="button"
               className="start-invitations-button"
-              onClick={() =>
-                navigate("/invitations")
-              }
+              onClick={() => navigate("/invitations")}
             >
               <Bell size={16} />
               Invitations
@@ -96,9 +83,7 @@ function StartPage() {
                   currentUser?.full_name ||
                   currentUser?.username ||
                   "U"
-                )
-                  .charAt(0)
-                  .toUpperCase()}
+                ).charAt(0).toUpperCase()}
               </div>
 
               <div>
@@ -109,18 +94,14 @@ function StartPage() {
                 </strong>
 
                 <span>
-                  @
-                  {currentUser?.username ||
-                    "user"}
+                  @{currentUser?.username || "user"}
                 </span>
               </div>
             </div>
 
           </div>
-
         </header>
 
-        {/* WELCOME */}
         <section className="start-welcome">
 
           <div>
@@ -131,19 +112,14 @@ function StartPage() {
             <h1>
               Welcome back
               {currentUser?.full_name
-                ? `, ${
-                    currentUser.full_name.split(
-                      " "
-                    )[0]
-                  }`
+                ? `, ${currentUser.full_name.split(" ")[0]}`
                 : ""}
               .
             </h1>
 
             <p>
-              Create a new workspace or
-              continue working in one of your
-              existing rooms.
+              Create a new workspace or continue
+              working in one of your existing rooms.
             </p>
           </div>
 
@@ -155,26 +131,19 @@ function StartPage() {
           >
             <RefreshCw
               size={16}
-              className={
-                loading
-                  ? "start-spin"
-                  : ""
-              }
+              className={loading ? "start-spin" : ""}
             />
             Refresh
           </button>
 
         </section>
 
-        {/* ACTION CARDS */}
         <section className="start-actions">
 
           <button
             type="button"
             className="start-action-card start-action-primary"
-            onClick={() =>
-              navigate("/create-room")
-            }
+            onClick={() => navigate("/create-room")}
           >
             <div className="start-action-icon">
               <Plus size={22} />
@@ -198,9 +167,7 @@ function StartPage() {
           <button
             type="button"
             className="start-action-card"
-            onClick={() =>
-              navigate("/invitations")
-            }
+            onClick={() => navigate("/invitations")}
           >
             <div className="start-action-icon">
               <Users size={22} />
@@ -223,7 +190,6 @@ function StartPage() {
 
         </section>
 
-        {/* EXISTING ROOMS */}
         <section className="start-rooms-section">
 
           <div className="start-section-header">
@@ -233,21 +199,17 @@ function StartPage() {
                 YOUR WORKSPACES
               </span>
 
-              <h2>
-                Existing Rooms
-              </h2>
+              <h2>Existing Rooms</h2>
 
               <p>
-                Open a room you already belong
-                to and continue working.
+                Open a room you already belong to
+                and continue working.
               </p>
             </div>
 
             <div className="start-room-count">
               {rooms.length}{" "}
-              {rooms.length === 1
-                ? "Room"
-                : "Rooms"}
+              {rooms.length === 1 ? "Room" : "Rooms"}
             </div>
 
           </div>
@@ -260,21 +222,16 @@ function StartPage() {
 
           {loading ? (
             <div className="start-empty">
-
               <RefreshCw
                 size={25}
                 className="start-spin"
               />
 
-              <h3>
-                Loading your rooms...
-              </h3>
+              <h3>Loading your rooms...</h3>
 
               <p>
-                Checking your existing
-                workspaces.
+                Checking your existing workspaces.
               </p>
-
             </div>
           ) : rooms.length === 0 ? (
             <div className="start-empty">
@@ -283,9 +240,7 @@ function StartPage() {
                 <DoorOpen size={27} />
               </div>
 
-              <h3>
-                No rooms yet
-              </h3>
+              <h3>No rooms yet</h3>
 
               <p>
                 Create your first room or accept
@@ -296,9 +251,7 @@ function StartPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    navigate("/create-room")
-                  }
+                  onClick={() => navigate("/create-room")}
                 >
                   <Plus size={16} />
                   Create Room
@@ -306,16 +259,13 @@ function StartPage() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    navigate("/invitations")
-                  }
+                  onClick={() => navigate("/invitations")}
                 >
                   <Bell size={16} />
                   Invitations
                 </button>
 
               </div>
-
             </div>
           ) : (
             <div className="start-rooms-grid">
@@ -326,12 +276,9 @@ function StartPage() {
                   className="start-room-card"
                   key={room.id}
                   onClick={() =>
-                    navigate(
-                      `/dashboard/${room.id}`
-                    )
+                    navigate(`/dashboard/${room.id}`)
                   }
                 >
-
                   <div className="start-room-top">
 
                     <div className="start-room-avatar">
@@ -348,30 +295,23 @@ function StartPage() {
                   </div>
 
                   <div className="start-room-content">
-
                     <h3>
-                      {room.name ||
-                        `Room #${room.id}`}
+                      {room.name || `Room #${room.id}`}
                     </h3>
 
                     <p>
                       {room.description ||
                         "RoomSync team workspace"}
                     </p>
-
                   </div>
 
                   <div className="start-room-footer">
-
                     <span>
                       <Users size={14} />
                       Open workspace
                     </span>
 
-                    <span>
-                      #{room.id}
-                    </span>
-
+                    <span>#{room.id}</span>
                   </div>
 
                 </button>
@@ -381,7 +321,6 @@ function StartPage() {
           )}
 
         </section>
-
       </div>
     </main>
   );

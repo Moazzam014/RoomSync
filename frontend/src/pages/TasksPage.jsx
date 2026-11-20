@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -28,20 +28,12 @@ function TasksPage() {
   const [room, setRoom] = useState(null);
   const [tasks, setTasks] = useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const [creating, setCreating] =
-    useState(false);
-
-  const [deletingId, setDeletingId] =
-    useState(null);
-
-  const [error, setError] =
-    useState("");
-
-  const [success, setSuccess] =
-    useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -50,8 +42,7 @@ function TasksPage() {
   });
 
   const getErrorMessage = (err) => {
-    const detail =
-      err?.response?.data?.detail;
+    const detail = err?.response?.data?.detail;
 
     if (typeof detail === "string") {
       return detail;
@@ -60,15 +51,11 @@ function TasksPage() {
     if (Array.isArray(detail)) {
       return detail
         .map((item) => {
-          if (
-            typeof item === "string"
-          ) {
+          if (typeof item === "string") {
             return item;
           }
 
-          if (
-            typeof item?.msg === "string"
-          ) {
+          if (typeof item?.msg === "string") {
             return item.msg;
           }
 
@@ -77,10 +64,7 @@ function TasksPage() {
         .join(", ");
     }
 
-    if (
-      detail &&
-      typeof detail === "object"
-    ) {
+    if (detail && typeof detail === "object") {
       return (
         detail.msg ||
         detail.message ||
@@ -88,53 +72,42 @@ function TasksPage() {
       );
     }
 
-    return (
-      err?.message ||
-      "Something went wrong."
-    );
+    return err?.message || "Something went wrong.";
   };
 
-  const loadData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       setError("");
 
-      const [roomData, taskData] =
-        await Promise.all([
-          getRoom(roomId),
-          getRoomTasks(roomId),
-        ]);
+      const [roomData, taskData] = await Promise.all([
+        getRoom(roomId),
+        getRoomTasks(roomId),
+      ]);
 
       setRoom(roomData);
 
       setTasks(
-        Array.isArray(taskData)
-          ? taskData
-          : []
+        Array.isArray(taskData) ? taskData : []
       );
     } catch (err) {
-      console.error(
-        "Tasks page error:",
-        err
-      );
-
-      setError(
-        getErrorMessage(err)
-      );
+      console.error("Tasks page error:", err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  }, [roomId]);
+
+  const loadData = async () => {
+    setLoading(true);
+    await fetchData();
   };
 
   useEffect(() => {
-    if (roomId) {
-      loadData();
-    }
-  }, [roomId]);
+    fetchData();
+  }, [fetchData]);
 
   const handleChange = (event) => {
-    const { name, value } =
-      event.target;
+    const { name, value } = event.target;
 
     setForm((previous) => ({
       ...previous,
@@ -142,15 +115,11 @@ function TasksPage() {
     }));
   };
 
-  const handleCreateTask = async (
-    event
-  ) => {
+  const handleCreateTask = async (event) => {
     event.preventDefault();
 
     if (!form.name.trim()) {
-      setError(
-        "Please enter a task name."
-      );
+      setError("Please enter a task name.");
       return;
     }
 
@@ -161,9 +130,7 @@ function TasksPage() {
 
       await createTask({
         name: form.name.trim(),
-        description:
-          form.description.trim() ||
-          null,
+        description: form.description.trim() || null,
         frequency: form.frequency,
         room_id: Number(roomId),
       });
@@ -174,32 +141,21 @@ function TasksPage() {
         frequency: "daily",
       });
 
-      setSuccess(
-        "Task created successfully."
-      );
+      setSuccess("Task created successfully.");
 
       await loadData();
     } catch (err) {
-      console.error(
-        "Create task error:",
-        err
-      );
-
-      setError(
-        getErrorMessage(err)
-      );
+      console.error("Create task error:", err);
+      setError(getErrorMessage(err));
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeactivateTask = async (
-    taskId
-  ) => {
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to remove this task?"
-      );
+  const handleDeactivateTask = async (taskId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this task?"
+    );
 
     if (!confirmed) {
       return;
@@ -212,20 +168,12 @@ function TasksPage() {
 
       await deactivateTask(taskId);
 
-      setSuccess(
-        "Task removed successfully."
-      );
+      setSuccess("Task removed successfully.");
 
       await loadData();
     } catch (err) {
-      console.error(
-        "Deactivate task error:",
-        err
-      );
-
-      setError(
-        getErrorMessage(err)
-      );
+      console.error("Deactivate task error:", err);
+      setError(getErrorMessage(err));
     } finally {
       setDeletingId(null);
     }
@@ -239,17 +187,13 @@ function TasksPage() {
     <main className="tasks-page">
       <div className="tasks-shell">
 
-        {/* HEADER */}
         <header className="tasks-header">
-
           <div>
             <button
               type="button"
               className="tasks-back"
               onClick={() =>
-                navigate(
-                  `/dashboard/${roomId}`
-                )
+                navigate(`/dashboard/${roomId}`)
               }
             >
               <ArrowLeft size={16} />
@@ -260,13 +204,11 @@ function TasksPage() {
               ROOM WORKFLOW
             </span>
 
-            <h1>
-              {room?.name || "Tasks"}
-            </h1>
+            <h1>{room?.name || "Tasks"}</h1>
 
             <p>
-              Create and manage tasks for
-              this RoomSync workspace.
+              Create and manage tasks for this
+              RoomSync workspace.
             </p>
           </div>
 
@@ -278,18 +220,11 @@ function TasksPage() {
           >
             <RefreshCw
               size={16}
-              className={
-                loading
-                  ? "tasks-spin"
-                  : ""
-              }
+              className={loading ? "tasks-spin" : ""}
             />
             Refresh
           </button>
-
         </header>
-
-        {/* MESSAGES */}
 
         {error && (
           <div className="tasks-message tasks-error">
@@ -297,9 +232,7 @@ function TasksPage() {
 
             <button
               type="button"
-              onClick={() =>
-                setError("")
-              }
+              onClick={() => setError("")}
             >
               <X size={15} />
             </button>
@@ -309,21 +242,16 @@ function TasksPage() {
         {success && (
           <div className="tasks-message tasks-success">
             <CheckCircle2 size={16} />
-
             <span>{success}</span>
 
             <button
               type="button"
-              onClick={() =>
-                setSuccess("")
-              }
+              onClick={() => setSuccess("")}
             >
               <X size={15} />
             </button>
           </div>
         )}
-
-        {/* STATS */}
 
         <section className="tasks-stats">
 
@@ -334,9 +262,7 @@ function TasksPage() {
 
             <div>
               <span>Total Tasks</span>
-              <strong>
-                {tasks.length}
-              </strong>
+              <strong>{tasks.length}</strong>
             </div>
           </div>
 
@@ -347,9 +273,7 @@ function TasksPage() {
 
             <div>
               <span>Active Tasks</span>
-              <strong>
-                {activeTasks.length}
-              </strong>
+              <strong>{activeTasks.length}</strong>
             </div>
           </div>
 
@@ -370,105 +294,68 @@ function TasksPage() {
 
         </section>
 
-        {/* CREATE TASK */}
-
         <section className="tasks-create-card">
 
           <div className="tasks-card-heading">
-
             <div className="tasks-heading-icon">
               <Plus size={19} />
             </div>
 
             <div>
-              <h2>
-                Create a Task
-              </h2>
+              <h2>Create a Task</h2>
 
               <p>
-                Add a new task to this
-                workspace.
+                Add a new task to this workspace.
               </p>
             </div>
-
           </div>
 
           <form
             className="tasks-form"
-            onSubmit={
-              handleCreateTask
-            }
+            onSubmit={handleCreateTask}
           >
-
             <div className="tasks-form-grid">
 
               <label>
-                <span>
-                  Task Name
-                </span>
+                <span>Task Name</span>
 
                 <input
                   type="text"
                   name="name"
                   placeholder="e.g. Prepare weekly report"
                   value={form.name}
-                  onChange={
-                    handleChange
-                  }
+                  onChange={handleChange}
                   disabled={creating}
                   required
                 />
               </label>
 
               <label>
-                <span>
-                  Frequency
-                </span>
+                <span>Frequency</span>
 
                 <select
                   name="frequency"
-                  value={
-                    form.frequency
-                  }
-                  onChange={
-                    handleChange
-                  }
+                  value={form.frequency}
+                  onChange={handleChange}
                   disabled={creating}
                 >
-                  <option value="daily">
-                    Daily
-                  </option>
-
-                  <option value="weekly">
-                    Weekly
-                  </option>
-
-                  <option value="monthly">
-                    Monthly
-                  </option>
-
-                  <option value="once">
-                    Once
-                  </option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="once">Once</option>
                 </select>
               </label>
 
             </div>
 
             <label>
-              <span>
-                Description
-              </span>
+              <span>Description</span>
 
               <textarea
                 name="description"
                 placeholder="Describe what needs to be done..."
-                value={
-                  form.description
-                }
-                onChange={
-                  handleChange
-                }
+                value={form.description}
+                onChange={handleChange}
                 disabled={creating}
                 rows={3}
               />
@@ -494,93 +381,65 @@ function TasksPage() {
                 </>
               )}
             </button>
-
           </form>
-
         </section>
-
-        {/* TASK LIST */}
 
         <section className="tasks-list-card">
 
           <div className="tasks-card-heading">
-
             <div className="tasks-heading-icon">
-              <ClipboardList
-                size={19}
-              />
+              <ClipboardList size={19} />
             </div>
 
             <div>
-              <h2>
-                Room Tasks
-              </h2>
+              <h2>Room Tasks</h2>
 
               <p>
-                Tasks currently configured
-                for this room.
+                Tasks currently configured for this room.
               </p>
             </div>
 
             <span className="tasks-count">
               {tasks.length}
             </span>
-
           </div>
 
           {loading ? (
             <div className="tasks-empty">
-
               <RefreshCw
                 size={25}
                 className="tasks-spin"
               />
 
-              <h3>
-                Loading tasks...
-              </h3>
-
+              <h3>Loading tasks...</h3>
             </div>
           ) : tasks.length === 0 ? (
             <div className="tasks-empty">
-
               <div className="tasks-empty-icon">
-                <ClipboardList
-                  size={27}
-                />
+                <ClipboardList size={27} />
               </div>
 
-              <h3>
-                No tasks yet
-              </h3>
+              <h3>No tasks yet</h3>
 
               <p>
-                Create your first task using
-                the form above.
+                Create your first task using the
+                form above.
               </p>
-
             </div>
           ) : (
             <div className="tasks-list">
-
               {tasks.map((task) => (
                 <article
                   className="task-row"
                   key={task.id}
                 >
-
                   <div className="task-row-icon">
-                    <ClipboardList
-                      size={17}
-                    />
+                    <ClipboardList size={17} />
                   </div>
 
                   <div className="task-row-content">
-
                     <div className="task-row-title">
-                      <h3>
-                        {task.name}
-                      </h3>
+                      <h3>{task.name}</h3>
 
                       <span
                         className={
@@ -596,64 +455,46 @@ function TasksPage() {
                     </div>
 
                     {task.description && (
-                      <p>
-                        {task.description}
-                      </p>
+                      <p>{task.description}</p>
                     )}
 
                     <div className="task-row-meta">
-
                       <span>
                         Frequency:{" "}
-                        <strong>
-                          {task.frequency}
-                        </strong>
+                        <strong>{task.frequency}</strong>
                       </span>
 
-                      <span>
-                        Task #{task.id}
-                      </span>
-
+                      <span>Task #{task.id}</span>
                     </div>
-
                   </div>
 
-                  <button
-                    type="button"
-                    className="task-delete-button"
-                    disabled={
-                      deletingId ===
-                      task.id
-                    }
-                    onClick={() =>
-                      handleDeactivateTask(
-                        task.id
-                      )
-                    }
-                  >
-                    {deletingId ===
-                    task.id ? (
-                      <Loader2
-                        size={15}
-                        className="tasks-spin"
-                      />
-                    ) : (
-                      <Trash2
-                        size={15}
-                      />
-                    )}
+                  {task.is_active && (
+                    <button
+                      type="button"
+                      className="task-delete-button"
+                      disabled={deletingId === task.id}
+                      onClick={() =>
+                        handleDeactivateTask(task.id)
+                      }
+                    >
+                      {deletingId === task.id ? (
+                        <Loader2
+                          size={15}
+                          className="tasks-spin"
+                        />
+                      ) : (
+                        <Trash2 size={15} />
+                      )}
 
-                    Remove
-                  </button>
-
+                      Remove
+                    </button>
+                  )}
                 </article>
               ))}
-
             </div>
           )}
 
         </section>
-
       </div>
     </main>
   );

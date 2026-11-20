@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -21,6 +21,7 @@ import {
   getMyInvitations,
   sendInvitation,
 } from "../services/invitationService";
+import { getStoredUser } from "../services/authService";
 
 function MembersPage() {
   const { roomId } = useParams();
@@ -39,77 +40,33 @@ function MembersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const currentUser = useMemo(() => {
+  const currentUser = useMemo(
+    () => getStoredUser(),
+    []
+  );
+
+  const fetchPage = useCallback(async () => {
     try {
-      return JSON.parse(
-        localStorage.getItem(
-          "roomsync_user"
-        ) || "null"
-      );
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const loadMembers = async () => {
-    try {
-      const data =
-        await getRoomMembers(roomId);
-
-      setMembers(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-    } catch (err) {
-      console.error(
-        "Members loading error:",
-        err
-      );
-
-      setMembers([]);
-    }
-  };
-
-  const loadInvitations = async () => {
-    try {
-      const data =
-        await getMyInvitations();
-
-      setInvitations(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-    } catch (err) {
-      console.error(
-        "Invitations loading error:",
-        err
-      );
-
-      setInvitations([]);
-    }
-  };
-
-  const loadPage = async () => {
-    try {
-      setLoading(true);
       setError("");
 
-      const roomData =
-        await getRoom(roomId);
+      const [roomData, memberData, invitationData] =
+        await Promise.all([
+          getRoom(roomId),
+          getRoomMembers(roomId),
+          getMyInvitations(),
+        ]);
 
       setRoom(roomData);
-
-      await Promise.all([
-        loadMembers(),
-        loadInvitations(),
-      ]);
-    } catch (err) {
-      console.error(
-        "Members page error:",
-        err
+      setMembers(
+        Array.isArray(memberData) ? memberData : []
       );
+      setInvitations(
+        Array.isArray(invitationData)
+          ? invitationData
+          : []
+      );
+    } catch (err) {
+      console.error("Members page error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -118,31 +75,30 @@ function MembersPage() {
     } finally {
       setLoading(false);
     }
+  }, [roomId]);
+
+  const loadPage = async () => {
+    setLoading(true);
+    await fetchPage();
   };
 
   useEffect(() => {
-    loadPage();
-  }, [roomId]);
+    fetchPage();
+  }, [fetchPage]);
 
   const roomInvitations = invitations.filter(
     (invitation) =>
-      Number(invitation.room_id) ===
-        Number(roomId) &&
+      Number(invitation.room_id) === Number(roomId) &&
       invitation.status === "pending"
   );
 
-  const handleSendInvitation = async (
-    event
-  ) => {
+  const handleSendInvitation = async (event) => {
     event.preventDefault();
 
-    const cleanUsername =
-      username.trim();
+    const cleanUsername = username.trim();
 
     if (!cleanUsername) {
-      setError(
-        "Enter a username to send an invitation."
-      );
+      setError("Enter a username to send an invitation.");
       return;
     }
 
@@ -153,8 +109,7 @@ function MembersPage() {
 
       await sendInvitation({
         room_id: Number(roomId),
-        invitee_username:
-          cleanUsername,
+        invitee_username: cleanUsername,
       });
 
       setUsername("");
@@ -163,12 +118,9 @@ function MembersPage() {
         `Invitation sent to @${cleanUsername}.`
       );
 
-      await loadInvitations();
+      await fetchPage();
     } catch (err) {
-      console.error(
-        "Send invitation error:",
-        err
-      );
+      console.error("Send invitation error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -179,31 +131,19 @@ function MembersPage() {
     }
   };
 
-  const handleAccept = async (
-    invitationId
-  ) => {
+  const handleAccept = async (invitationId) => {
     try {
       setProcessingId(invitationId);
       setError("");
       setSuccess("");
 
-      await acceptInvitation(
-        invitationId
-      );
+      await acceptInvitation(invitationId);
 
-      setSuccess(
-        "Invitation accepted successfully."
-      );
+      setSuccess("Invitation accepted successfully.");
 
-      await Promise.all([
-        loadMembers(),
-        loadInvitations(),
-      ]);
+      await fetchPage();
     } catch (err) {
-      console.error(
-        "Accept invitation error:",
-        err
-      );
+      console.error("Accept invitation error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -214,28 +154,19 @@ function MembersPage() {
     }
   };
 
-  const handleDecline = async (
-    invitationId
-  ) => {
+  const handleDecline = async (invitationId) => {
     try {
       setProcessingId(invitationId);
       setError("");
       setSuccess("");
 
-      await declineInvitation(
-        invitationId
-      );
+      await declineInvitation(invitationId);
 
-      setSuccess(
-        "Invitation declined."
-      );
+      setSuccess("Invitation declined.");
 
-      await loadInvitations();
+      await fetchPage();
     } catch (err) {
-      console.error(
-        "Decline invitation error:",
-        err
-      );
+      console.error("Decline invitation error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -264,18 +195,13 @@ function MembersPage() {
     <main className="members-page">
       <div className="members-shell">
 
-        {/* HEADER */}
-
         <header className="members-header">
-
           <div>
             <button
               type="button"
               className="members-back"
               onClick={() =>
-                navigate(
-                  `/dashboard/${roomId}`
-                )
+                navigate(`/dashboard/${roomId}`)
               }
             >
               <ArrowLeft size={17} />
@@ -287,13 +213,12 @@ function MembersPage() {
             </span>
 
             <h1>
-              {room?.name ||
-                `Room #${roomId}`}
+              {room?.name || `Room #${roomId}`}
             </h1>
 
             <p>
-              Manage your team members and
-              invite new teammates.
+              Manage your team members and invite
+              new teammates.
             </p>
           </div>
 
@@ -301,14 +226,12 @@ function MembersPage() {
             type="button"
             className="members-refresh"
             onClick={loadPage}
+            disabled={loading}
           >
             <RefreshCw size={17} />
             Refresh
           </button>
-
         </header>
-
-        {/* MESSAGES */}
 
         {error && (
           <div className="members-message members-message-error">
@@ -337,110 +260,71 @@ function MembersPage() {
           </div>
         )}
 
-        {/* SUMMARY */}
-
         <section className="members-summary">
 
           <div className="members-summary-card">
-
             <div className="members-summary-icon">
               <Users size={21} />
             </div>
 
             <div>
-              <span>
-                TEAM MEMBERS
-              </span>
-
-              <strong>
-                {members.length} / 7
-              </strong>
+              <span>TEAM MEMBERS</span>
+              <strong>{members.length}</strong>
             </div>
-
           </div>
 
           <div className="members-summary-card">
-
             <div className="members-summary-icon">
               <Mail size={21} />
             </div>
 
             <div>
-              <span>
-                PENDING INVITES
-              </span>
-
-              <strong>
-                {roomInvitations.length}
-              </strong>
+              <span>PENDING INVITES</span>
+              <strong>{roomInvitations.length}</strong>
             </div>
-
           </div>
 
           <div className="members-summary-card">
-
             <div className="members-summary-icon">
               <ShieldCheck size={21} />
             </div>
 
             <div>
-              <span>
-                ROOM CAPACITY
-              </span>
-
-              <strong>
-                {Math.max(
-                  7 - members.length,
-                  0
-                )}{" "}
-                spots
-              </strong>
+              <span>ROOM</span>
+              <strong>Active</strong>
             </div>
-
           </div>
 
         </section>
 
-        {/* INVITE + MEMBERS */}
-
         <section className="members-layout">
-
-          {/* INVITE */}
 
           <div className="members-card members-invite-card">
 
             <div className="members-card-heading">
-
               <div className="members-card-icon">
                 <UserPlus size={20} />
               </div>
 
               <div>
-                <h2>
-                  Invite a Teammate
-                </h2>
+                <h2>Invite a Teammate</h2>
 
                 <p>
-                  Invite an existing
-                  RoomSync user by username.
+                  Invite an existing RoomSync user
+                  by username.
                 </p>
               </div>
-
             </div>
 
             <form
               className="members-invite-form"
-              onSubmit={
-                handleSendInvitation
-              }
+              onSubmit={handleSendInvitation}
             >
-
               <label htmlFor="invite-username">
                 Username
               </label>
 
               <div className="members-input-row">
-
                 <div className="members-input-wrap">
                   <span>@</span>
 
@@ -449,9 +333,7 @@ function MembersPage() {
                     type="text"
                     value={username}
                     onChange={(event) =>
-                      setUsername(
-                        event.target.value
-                      )
+                      setUsername(event.target.value)
                     }
                     placeholder="username"
                     disabled={sending}
@@ -460,10 +342,7 @@ function MembersPage() {
 
                 <button
                   type="submit"
-                  disabled={
-                    sending ||
-                    members.length >= 7
-                  }
+                  disabled={sending || !username.trim()}
                 >
                   {sending ? (
                     <>
@@ -480,63 +359,41 @@ function MembersPage() {
                     </>
                   )}
                 </button>
-
               </div>
-
-              {members.length >= 7 && (
-                <span className="members-capacity-note">
-                  This room has reached its
-                  maximum capacity of 7 members.
-                </span>
-              )}
-
             </form>
 
           </div>
 
-          {/* MEMBERS */}
-
           <div className="members-card">
 
             <div className="members-card-heading">
-
               <div className="members-card-icon">
                 <Users size={20} />
               </div>
 
               <div>
-                <h2>
-                  Team Members
-                </h2>
+                <h2>Team Members</h2>
 
                 <p>
-                  People currently in this
-                  workspace.
+                  People currently in this workspace.
                 </p>
               </div>
-
             </div>
 
             {members.length === 0 ? (
               <div className="members-empty">
-
                 <Users size={29} />
 
-                <h3>
-                  No team members yet
-                </h3>
+                <h3>No team members yet</h3>
 
                 <p>
-                  Invite teammates using
-                  their RoomSync username.
+                  Invite teammates using their
+                  RoomSync username.
                 </p>
-
               </div>
             ) : (
               <div className="members-list">
-
                 {members.map((member) => {
-
                   const memberName =
                     member.name ||
                     member.username ||
@@ -545,39 +402,28 @@ function MembersPage() {
                   const isCurrentUser =
                     member.user_id &&
                     currentUser?.id &&
-                    Number(
-                      member.user_id
-                    ) ===
-                      Number(
-                        currentUser.id
-                      );
+                    Number(member.user_id) ===
+                      Number(currentUser.id);
 
                   return (
                     <div
                       className="member-row"
                       key={member.id}
                     >
-
                       <div className="member-avatar">
-                        {memberName
-                          .charAt(0)
-                          .toUpperCase()}
+                        {memberName.charAt(0).toUpperCase()}
                       </div>
 
                       <div className="member-info">
-
-                        <strong>
-                          {memberName}
-                        </strong>
+                        <strong>{memberName}</strong>
 
                         <span>
                           {isCurrentUser
                             ? "You"
                             : member.user_id
-                            ? "Room member"
-                            : "Legacy member"}
+                              ? "Room member"
+                              : "Legacy member"}
                         </span>
-
                       </div>
 
                       <span
@@ -591,135 +437,101 @@ function MembersPage() {
                           ? "Inactive"
                           : "Active"}
                       </span>
-
                     </div>
                   );
                 })}
-
               </div>
             )}
 
           </div>
-
         </section>
-
-        {/* PENDING INVITATIONS */}
 
         <section className="members-card members-pending-card">
 
           <div className="members-card-heading">
-
             <div className="members-card-icon">
               <Bell size={20} />
             </div>
 
             <div>
-              <h2>
-                Pending Invitations
-              </h2>
+              <h2>Pending Invitations</h2>
 
               <p>
-                Invitations waiting for
-                your response.
+                Invitations waiting for your response.
               </p>
             </div>
-
           </div>
 
           {roomInvitations.length === 0 ? (
             <div className="members-pending-empty">
               <Check size={20} />
+
               <span>
-                No pending invitations for
-                this room.
+                No pending invitations for this room.
               </span>
             </div>
           ) : (
             <div className="members-invitation-list">
+              {roomInvitations.map((invitation) => {
+                const invitationId = invitation.id;
+                const busy = processingId === invitationId;
 
-              {roomInvitations.map(
-                (invitation) => {
-
-                  const invitationId =
-                    invitation.id;
-
-                  const busy =
-                    processingId ===
-                    invitationId;
-
-                  return (
-                    <div
-                      className="member-invitation-row"
-                      key={invitationId}
-                    >
-
-                      <div className="member-invitation-icon">
-                        <Mail size={17} />
-                      </div>
-
-                      <div className="member-invitation-info">
-
-                        <strong>
-                          Room invitation
-                        </strong>
-
-                        <span>
-                          Invitation #{invitationId}
-                        </span>
-
-                      </div>
-
-                      <div className="member-invitation-actions">
-
-                        <button
-                          type="button"
-                          className="member-accept"
-                          disabled={busy}
-                          onClick={() =>
-                            handleAccept(
-                              invitationId
-                            )
-                          }
-                        >
-                          {busy ? (
-                            <RefreshCw
-                              size={15}
-                              className="members-spin"
-                            />
-                          ) : (
-                            <Check
-                              size={15}
-                            />
-                          )}
-                          Accept
-                        </button>
-
-                        <button
-                          type="button"
-                          className="member-decline"
-                          disabled={busy}
-                          onClick={() =>
-                            handleDecline(
-                              invitationId
-                            )
-                          }
-                        >
-                          <X size={15} />
-                          Decline
-                        </button>
-
-                      </div>
-
+                return (
+                  <div
+                    className="member-invitation-row"
+                    key={invitationId}
+                  >
+                    <div className="member-invitation-icon">
+                      <Mail size={17} />
                     </div>
-                  );
-                }
-              )}
 
+                    <div className="member-invitation-info">
+                      <strong>Room invitation</strong>
+
+                      <span>
+                        Invitation #{invitationId}
+                      </span>
+                    </div>
+
+                    <div className="member-invitation-actions">
+                      <button
+                        type="button"
+                        className="member-accept"
+                        disabled={busy}
+                        onClick={() =>
+                          handleAccept(invitationId)
+                        }
+                      >
+                        {busy ? (
+                          <RefreshCw
+                            size={15}
+                            className="members-spin"
+                          />
+                        ) : (
+                          <Check size={15} />
+                        )}
+                        Accept
+                      </button>
+
+                      <button
+                        type="button"
+                        className="member-decline"
+                        disabled={busy}
+                        onClick={() =>
+                          handleDecline(invitationId)
+                        }
+                      >
+                        <X size={15} />
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
         </section>
-
       </div>
     </main>
   );

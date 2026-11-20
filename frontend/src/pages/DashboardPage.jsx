@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -15,6 +15,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getRoom } from "../services/roomService";
 import { getRoomMembers } from "../services/memberService";
 import { getRoomTasks } from "../services/taskService";
+import { getRoomWorkflow } from "../services/workflowService";
 import LogoutButton from "../components/common/LogoutButton";
 
 function DashboardPage() {
@@ -24,58 +25,48 @@ function DashboardPage() {
   const [room, setRoom] = useState(null);
   const [members, setMembers] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [rotations, setRotations] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadDashboard = async () => {
-    setLoading(true);
-    setError("");
-
+  const fetchDashboard = useCallback(async () => {
     try {
-      const roomResult = await getRoom(roomId);
+      setError("");
+
+      const [
+        roomResult,
+        membersResult,
+        tasksResult,
+        workflowResult,
+      ] = await Promise.all([
+        getRoom(roomId),
+        getRoomMembers(roomId),
+        getRoomTasks(roomId),
+        getRoomWorkflow(roomId),
+      ]);
 
       setRoom(roomResult);
 
-      try {
-        const membersResult =
-          await getRoomMembers(roomId);
-
-        setMembers(
-          Array.isArray(membersResult)
-            ? membersResult
-            : []
-        );
-      } catch (memberError) {
-        console.error(
-          "Members loading error:",
-          memberError
-        );
-
-        setMembers([]);
-      }
-
-      try {
-        const tasksResult =
-          await getRoomTasks(roomId);
-
-        setTasks(
-          Array.isArray(tasksResult)
-            ? tasksResult
-            : []
-        );
-      } catch (taskError) {
-        console.error(
-          "Tasks loading error:",
-          taskError
-        );
-
-        setTasks([]);
-      }
-    } catch (err) {
-      console.error(
-        "Dashboard loading error:",
-        err
+      setMembers(
+        Array.isArray(membersResult)
+          ? membersResult
+          : []
       );
+
+      setTasks(
+        Array.isArray(tasksResult)
+          ? tasksResult
+          : []
+      );
+
+      setRotations(
+        Array.isArray(workflowResult?.rotations)
+          ? workflowResult.rotations
+          : []
+      );
+    } catch (err) {
+      console.error("Dashboard loading error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -84,20 +75,39 @@ function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  }, [roomId]);
+
+  const loadDashboard = async () => {
+    setLoading(true);
+    await fetchDashboard();
   };
 
   useEffect(() => {
-    loadDashboard();
-  }, [roomId]);
+    fetchDashboard();
+  }, [fetchDashboard]);
 
-  const completedTasks = tasks.filter(
-    (task) =>
-      task.status === "completed" ||
-      task.status === "done"
+  const completedTasks = rotations.filter(
+    (rotation) => rotation.is_completed
   ).length;
 
-  const pendingTasks =
-    Math.max(tasks.length - completedTasks, 0);
+  const pendingTasks = rotations.filter(
+    (rotation) => !rotation.is_completed
+  ).length;
+
+  // Workflow rotations are returned newest first.
+  // Keep the latest rotation for each task.
+  const latestRotationByTask = new Map();
+
+  rotations.forEach((rotation) => {
+    if (!latestRotationByTask.has(rotation.task_id)) {
+      latestRotationByTask.set(
+        rotation.task_id,
+        rotation
+      );
+    }
+  });
+
+  const recentTasks = tasks.slice(0, 5);
 
   if (loading) {
     return (
@@ -107,9 +117,8 @@ function DashboardPage() {
             size={24}
             className="dashboard-spin"
           />
-          <span>
-            Loading room dashboard...
-          </span>
+
+          <span>Loading room dashboard...</span>
         </div>
       </main>
     );
@@ -119,8 +128,6 @@ function DashboardPage() {
     <main className="dashboard-page">
       <div className="dashboard-shell">
 
-        {/* SIDEBAR */}
-
         <aside className="dashboard-sidebar">
 
           <div className="dashboard-brand">
@@ -129,13 +136,8 @@ function DashboardPage() {
             </div>
 
             <div>
-              <strong>
-                RoomSync
-              </strong>
-
-              <span>
-                Team Workspace
-              </span>
+              <strong>RoomSync</strong>
+              <span>Team Workspace</span>
             </div>
           </div>
 
@@ -153,9 +155,7 @@ function DashboardPage() {
               type="button"
               className="dashboard-nav-item"
               onClick={() =>
-                navigate(
-                  `/dashboard/${roomId}/members`
-                )
+                navigate(`/dashboard/${roomId}/members`)
               }
             >
               <Users size={18} />
@@ -166,9 +166,7 @@ function DashboardPage() {
               type="button"
               className="dashboard-nav-item"
               onClick={() =>
-                navigate(
-                  `/dashboard/${roomId}/tasks`
-                )
+                navigate(`/dashboard/${roomId}/tasks`)
               }
             >
               <ClipboardList size={18} />
@@ -178,9 +176,7 @@ function DashboardPage() {
             <button
               type="button"
               className="dashboard-nav-item"
-              onClick={() =>
-                navigate("/invitations")
-              }
+              onClick={() => navigate("/invitations")}
             >
               <Bell size={18} />
               <span>Invitations</span>
@@ -193,9 +189,7 @@ function DashboardPage() {
             <button
               type="button"
               className="dashboard-nav-item"
-              onClick={() =>
-                navigate("/start")
-              }
+              onClick={() => navigate("/start")}
             >
               <ArrowLeft size={18} />
               <span>Overview</span>
@@ -204,30 +198,23 @@ function DashboardPage() {
             <LogoutButton />
 
           </div>
-
         </aside>
-
-        {/* MAIN CONTENT */}
 
         <section className="dashboard-main">
 
-          {/* HEADER */}
-
           <header className="dashboard-topbar">
-
             <div>
               <span className="dashboard-eyebrow">
                 ROOM DASHBOARD
               </span>
 
               <h1>
-                {room?.name ||
-                  `Room #${roomId}`}
+                {room?.name || `Room #${roomId}`}
               </h1>
 
               <p>
-                Manage your team, tasks and
-                workflow from one place.
+                Manage your team, tasks and workflow
+                from one place.
               </p>
             </div>
 
@@ -235,14 +222,12 @@ function DashboardPage() {
               type="button"
               className="dashboard-refresh-button"
               onClick={loadDashboard}
+              disabled={loading}
             >
               <RefreshCw size={17} />
               Refresh
             </button>
-
           </header>
-
-          {/* ERROR */}
 
           {error && (
             <div className="dashboard-error">
@@ -257,24 +242,17 @@ function DashboardPage() {
             </div>
           )}
 
-          {/* ROOM CARD */}
-
           <section className="dashboard-room-card">
-
             <div className="dashboard-room-left">
-
               <div className="dashboard-room-icon">
                 <ShieldCheck size={25} />
               </div>
 
               <div>
-                <span>
-                  Active Workspace
-                </span>
+                <span>Active Workspace</span>
 
                 <h2>
-                  {room?.name ||
-                    `Room #${roomId}`}
+                  {room?.name || `Room #${roomId}`}
                 </h2>
 
                 <p>
@@ -282,25 +260,19 @@ function DashboardPage() {
                     "Your RoomSync team workspace is ready."}
                 </p>
               </div>
-
             </div>
 
             <button
               type="button"
               className="dashboard-manage-button"
               onClick={() =>
-                navigate(
-                  `/dashboard/${roomId}/members`
-                )
+                navigate(`/dashboard/${roomId}/members`)
               }
             >
               <UserPlus size={17} />
               Manage Team
             </button>
-
           </section>
-
-          {/* STATS */}
 
           <section className="dashboard-stats">
 
@@ -310,13 +282,8 @@ function DashboardPage() {
               </div>
 
               <div>
-                <span>
-                  Team Members
-                </span>
-
-                <strong>
-                  {members.length}
-                </strong>
+                <span>Team Members</span>
+                <strong>{members.length}</strong>
               </div>
             </div>
 
@@ -326,13 +293,8 @@ function DashboardPage() {
               </div>
 
               <div>
-                <span>
-                  Total Tasks
-                </span>
-
-                <strong>
-                  {tasks.length}
-                </strong>
+                <span>Total Tasks</span>
+                <strong>{tasks.length}</strong>
               </div>
             </div>
 
@@ -342,13 +304,8 @@ function DashboardPage() {
               </div>
 
               <div>
-                <span>
-                  Completed
-                </span>
-
-                <strong>
-                  {completedTasks}
-                </strong>
+                <span>Completed Rotations</span>
+                <strong>{completedTasks}</strong>
               </div>
             </div>
 
@@ -358,31 +315,19 @@ function DashboardPage() {
               </div>
 
               <div>
-                <span>
-                  Pending
-                </span>
-
-                <strong>
-                  {pendingTasks}
-                </strong>
+                <span>Pending Rotations</span>
+                <strong>{pendingTasks}</strong>
               </div>
             </div>
 
           </section>
 
-          {/* QUICK ACTIONS */}
-
           <section className="dashboard-section">
 
             <div className="dashboard-section-heading">
               <div>
-                <span>
-                  WORKSPACE
-                </span>
-
-                <h2>
-                  Quick Actions
-                </h2>
+                <span>WORKSPACE</span>
+                <h2>Quick Actions</h2>
               </div>
             </div>
 
@@ -392,9 +337,7 @@ function DashboardPage() {
                 type="button"
                 className="dashboard-action-card"
                 onClick={() =>
-                  navigate(
-                    `/dashboard/${roomId}/members`
-                  )
+                  navigate(`/dashboard/${roomId}/members`)
                 }
               >
                 <div className="dashboard-action-icon">
@@ -402,13 +345,8 @@ function DashboardPage() {
                 </div>
 
                 <div>
-                  <strong>
-                    Manage Members
-                  </strong>
-
-                  <span>
-                    Invite and manage teammates.
-                  </span>
+                  <strong>Manage Members</strong>
+                  <span>Invite and manage teammates.</span>
                 </div>
 
                 <ArrowLeft
@@ -421,9 +359,7 @@ function DashboardPage() {
                 type="button"
                 className="dashboard-action-card"
                 onClick={() =>
-                  navigate(
-                    `/dashboard/${roomId}/tasks`
-                  )
+                  navigate(`/dashboard/${roomId}/tasks`)
                 }
               >
                 <div className="dashboard-action-icon">
@@ -431,13 +367,8 @@ function DashboardPage() {
                 </div>
 
                 <div>
-                  <strong>
-                    Manage Tasks
-                  </strong>
-
-                  <span>
-                    Create and manage room tasks.
-                  </span>
+                  <strong>Manage Tasks</strong>
+                  <span>Create and manage room tasks.</span>
                 </div>
 
                 <ArrowLeft
@@ -449,22 +380,15 @@ function DashboardPage() {
               <button
                 type="button"
                 className="dashboard-action-card"
-                onClick={() =>
-                  navigate("/invitations")
-                }
+                onClick={() => navigate("/invitations")}
               >
                 <div className="dashboard-action-icon">
                   <Bell size={21} />
                 </div>
 
                 <div>
-                  <strong>
-                    Invitations
-                  </strong>
-
-                  <span>
-                    View pending invitations.
-                  </span>
+                  <strong>Invitations</strong>
+                  <span>View pending invitations.</span>
                 </div>
 
                 <ArrowLeft
@@ -476,19 +400,14 @@ function DashboardPage() {
               <button
                 type="button"
                 className="dashboard-action-card"
-                onClick={() =>
-                  navigate("/start")
-                }
+                onClick={() => navigate("/start")}
               >
                 <div className="dashboard-action-icon">
                   <ArrowLeft size={21} />
                 </div>
 
                 <div>
-                  <strong>
-                    Overview
-                  </strong>
-
+                  <strong>Overview</strong>
                   <span>
                     Return to your workspace overview.
                   </span>
@@ -501,133 +420,106 @@ function DashboardPage() {
               </button>
 
             </div>
-
           </section>
-
-          {/* RECENT TASKS */}
 
           <section className="dashboard-section">
 
             <div className="dashboard-section-heading">
-
               <div>
-                <span>
-                  TASK OVERVIEW
-                </span>
-
-                <h2>
-                  Recent Tasks
-                </h2>
+                <span>TASK OVERVIEW</span>
+                <h2>Recent Tasks</h2>
               </div>
 
               <button
                 type="button"
                 className="dashboard-view-all"
                 onClick={() =>
-                  navigate(
-                    `/dashboard/${roomId}/tasks`
-                  )
+                  navigate(`/dashboard/${roomId}/tasks`)
                 }
               >
                 View all
               </button>
-
             </div>
 
-            {tasks.length === 0 ? (
+            {recentTasks.length === 0 ? (
               <div className="dashboard-empty">
-
                 <ClipboardList size={30} />
 
-                <h3>
-                  No tasks yet
-                </h3>
+                <h3>No tasks yet</h3>
 
                 <p>
-                  Create your first task for
-                  this room.
+                  Create your first task for this room.
                 </p>
 
                 <button
                   type="button"
                   onClick={() =>
-                    navigate(
-                      `/dashboard/${roomId}/tasks`
-                    )
+                    navigate(`/dashboard/${roomId}/tasks`)
                   }
                 >
                   Create Task
                 </button>
-
               </div>
             ) : (
               <div className="dashboard-task-list">
 
-                {tasks
-                  .slice(0, 5)
-                  .map((task) => {
+                {recentTasks.map((task) => {
+                  const latestRotation =
+                    latestRotationByTask.get(task.id);
 
-                    const isCompleted =
-                      task.status ===
-                        "completed" ||
-                      task.status === "done";
+                  const isCompleted =
+                    latestRotation?.is_completed === true;
 
-                    return (
-                      <div
-                        className="dashboard-task-row"
-                        key={task.id}
-                      >
+                  const status = latestRotation
+                    ? isCompleted
+                      ? "Completed"
+                      : "Pending"
+                    : "Not assigned";
 
-                        <div className="dashboard-task-main">
+                  return (
+                    <div
+                      className="dashboard-task-row"
+                      key={task.id}
+                    >
+                      <div className="dashboard-task-main">
 
-                          <div className="dashboard-task-dot">
-                            {isCompleted ? (
-                              <CheckCircle2
-                                size={17}
-                              />
-                            ) : (
-                              <ClipboardList
-                                size={17}
-                              />
-                            )}
-                          </div>
-
-                          <div>
-                            <strong>
-                              {task.title ||
-                                `Task #${task.id}`}
-                            </strong>
-
-                            <span>
-                              {task.description ||
-                                "Room task"}
-                            </span>
-                          </div>
-
+                        <div className="dashboard-task-dot">
+                          {isCompleted ? (
+                            <CheckCircle2 size={17} />
+                          ) : (
+                            <ClipboardList size={17} />
+                          )}
                         </div>
 
-                        <span
-                          className={`dashboard-task-status ${
-                            isCompleted
-                              ? "completed"
-                              : "pending"
-                          }`}
-                        >
-                          {isCompleted
-                            ? "Completed"
-                            : task.status ||
-                              "Pending"}
-                        </span>
+                        <div>
+                          <strong>
+                            {task.name || `Task #${task.id}`}
+                          </strong>
+
+                          <span>
+                            {task.description || "Room task"}
+                          </span>
+                        </div>
 
                       </div>
-                    );
-                  })}
+
+                      <span
+                        className={`dashboard-task-status ${
+                          isCompleted
+                            ? "completed"
+                            : "pending"
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                  );
+                })}
 
               </div>
             )}
 
           </section>
-
         </section>
       </div>
     </main>

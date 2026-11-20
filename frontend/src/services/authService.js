@@ -1,7 +1,11 @@
 import api from "./api";
 
 export const register = async (userData) => {
-  const response = await api.post("/auth/register", userData);
+  const response = await api.post(
+    "/auth/register",
+    userData
+  );
+
   return response.data;
 };
 
@@ -11,7 +15,11 @@ export const login = async (username, password) => {
     password,
   });
 
-  localStorage.setItem("roomsync_token", response.data.access_token);
+  localStorage.setItem(
+    "roomsync_token",
+    response.data.access_token
+  );
+
   localStorage.setItem(
     "roomsync_user",
     JSON.stringify(response.data.user)
@@ -26,9 +34,12 @@ export const logout = () => {
 };
 
 export const getStoredUser = () => {
-  const user = localStorage.getItem("roomsync_user");
-
-  return user ? JSON.parse(user) : null;
+  try {
+    const user = localStorage.getItem("roomsync_user");
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
+  }
 };
 
 export const getToken = () => {
@@ -36,5 +47,5 @@ export const getToken = () => {
 };
 
 export const isLoggedIn = () => {
-  return Boolean(localStorage.getItem("roomsync_token"));
+  return Boolean(getToken());
 };

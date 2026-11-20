@@ -1,12 +1,13 @@
+
 from sqlalchemy.orm import Session
 
 from app.models.task import Task
-from app.schemas.task import TaskCreate
+from app.schemas.task import TaskCreate, TaskUpdate
 
 
 def create_task(
     db: Session,
-    task_data: TaskCreate
+    task_data: TaskCreate,
 ):
     task = Task(
         name=task_data.name,
@@ -25,24 +26,22 @@ def create_task(
 
 def get_tasks_by_room(
     db: Session,
-    room_id: int
+    room_id: int,
 ):
     return (
         db.query(Task)
         .filter(
             Task.room_id == room_id,
-            Task.is_active == True,
+            Task.is_active.is_(True),
         )
-        .order_by(
-            Task.created_at.desc()
-        )
+        .order_by(Task.created_at.desc())
         .all()
     )
 
 
 def get_task(
     db: Session,
-    task_id: int
+    task_id: int,
 ):
     return (
         db.query(Task)
@@ -54,31 +53,17 @@ def get_task(
 def update_task(
     db: Session,
     task_id: int,
-    name: str | None = None,
-    description: str | None = None,
-    frequency: str | None = None,
-    is_active: bool | None = None,
+    task_data: TaskUpdate,
 ):
-    task = (
-        db.query(Task)
-        .filter(Task.id == task_id)
-        .first()
-    )
+    task = get_task(db, task_id)
 
     if not task:
         return None
 
-    if name is not None:
-        task.name = name
+    update_data = task_data.model_dump(exclude_unset=True)
 
-    if description is not None:
-        task.description = description
-
-    if frequency is not None:
-        task.frequency = frequency
-
-    if is_active is not None:
-        task.is_active = is_active
+    for field, value in update_data.items():
+        setattr(task, field, value)
 
     db.commit()
     db.refresh(task)
@@ -88,13 +73,9 @@ def update_task(
 
 def deactivate_task(
     db: Session,
-    task_id: int
+    task_id: int,
 ):
-    task = (
-        db.query(Task)
-        .filter(Task.id == task_id)
-        .first()
-    )
+    task = get_task(db, task_id)
 
     if not task:
         return None

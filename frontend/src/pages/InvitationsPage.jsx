@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -20,14 +20,12 @@ function InvitationsPage() {
 
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] =
-    useState(null);
+  const [processingId, setProcessingId] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loadInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     try {
-      setLoading(true);
       setError("");
 
       const data = await getMyInvitations();
@@ -36,10 +34,7 @@ function InvitationsPage() {
         Array.isArray(data) ? data : []
       );
     } catch (err) {
-      console.error(
-        "Invitations page error:",
-        err
-      );
+      console.error("Invitations page error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -48,11 +43,16 @@ function InvitationsPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadInvitations = async () => {
+    setLoading(true);
+    await fetchInvitations();
   };
 
   useEffect(() => {
-    loadInvitations();
-  }, []);
+    fetchInvitations();
+  }, [fetchInvitations]);
 
   const handleAccept = async (invitationId) => {
     try {
@@ -63,24 +63,15 @@ function InvitationsPage() {
       const invitation =
         await acceptInvitation(invitationId);
 
-      setSuccess(
-        "Invitation accepted successfully."
-      );
+      setSuccess("Invitation accepted successfully.");
 
-      await loadInvitations();
+      await fetchInvitations();
 
       if (invitation?.room_id) {
-        setTimeout(() => {
-          navigate(
-            `/dashboard/${invitation.room_id}`
-          );
-        }, 500);
+        navigate(`/dashboard/${invitation.room_id}`);
       }
     } catch (err) {
-      console.error(
-        "Accept invitation error:",
-        err
-      );
+      console.error("Accept invitation error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -101,12 +92,9 @@ function InvitationsPage() {
 
       setSuccess("Invitation declined.");
 
-      await loadInvitations();
+      await fetchInvitations();
     } catch (err) {
-      console.error(
-        "Decline invitation error:",
-        err
-      );
+      console.error("Decline invitation error:", err);
 
       setError(
         err.response?.data?.detail ||
@@ -153,11 +141,7 @@ function InvitationsPage() {
           >
             <RefreshCw
               size={16}
-              className={
-                loading
-                  ? "invitations-spin"
-                  : ""
-              }
+              className={loading ? "invitations-spin" : ""}
             />
             Refresh
           </button>
@@ -200,13 +184,10 @@ function InvitationsPage() {
             </div>
 
             <div>
-              <h2>
-                Pending Invitations
-              </h2>
+              <h2>Pending Invitations</h2>
 
               <p>
-                Invitations waiting for your
-                response.
+                Invitations waiting for your response.
               </p>
             </div>
 
@@ -223,9 +204,7 @@ function InvitationsPage() {
                 className="invitations-spin"
               />
 
-              <h3>
-                Loading invitations...
-              </h3>
+              <h3>Loading invitations...</h3>
             </div>
           ) : invitations.length === 0 ? (
             <div className="invitations-empty">
@@ -234,13 +213,11 @@ function InvitationsPage() {
                 <Check size={27} />
               </div>
 
-              <h3>
-                No pending invitations
-              </h3>
+              <h3>No pending invitations</h3>
 
               <p>
-                You're all caught up. New room
-                invitations will appear here.
+                You're all caught up. New room invitations
+                will appear here.
               </p>
 
               <button
@@ -256,35 +233,27 @@ function InvitationsPage() {
 
               {invitations.map((invitation) => {
                 const busy =
-                  processingId ===
-                  invitation.id;
+                  processingId === invitation.id;
 
                 return (
                   <article
                     className="invitation-row"
                     key={invitation.id}
                   >
-
                     <div className="invitation-avatar">
                       <UserRound size={19} />
                     </div>
 
                     <div className="invitation-info">
-
-                      <strong>
-                        Room Invitation
-                      </strong>
+                      <strong>Room Invitation</strong>
 
                       <span>
-                        Room #
-                        {invitation.room_id}
+                        Room #{invitation.room_id}
                       </span>
 
                       <small>
-                        Invitation #
-                        {invitation.id}
+                        Invitation #{invitation.id}
                       </small>
-
                     </div>
 
                     <div className="invitation-actions">
@@ -294,9 +263,7 @@ function InvitationsPage() {
                         className="invitation-accept"
                         disabled={busy}
                         onClick={() =>
-                          handleAccept(
-                            invitation.id
-                          )
+                          handleAccept(invitation.id)
                         }
                       >
                         {busy ? (
@@ -315,9 +282,7 @@ function InvitationsPage() {
                         className="invitation-decline"
                         disabled={busy}
                         onClick={() =>
-                          handleDecline(
-                            invitation.id
-                          )
+                          handleDecline(invitation.id)
                         }
                       >
                         <X size={15} />
@@ -325,7 +290,6 @@ function InvitationsPage() {
                       </button>
 
                     </div>
-
                   </article>
                 );
               })}
@@ -334,7 +298,6 @@ function InvitationsPage() {
           )}
 
         </section>
-
       </div>
     </main>
   );

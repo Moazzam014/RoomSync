@@ -5,9 +5,8 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_current_user
 from app.core.database import get_db
 from app.models.member import Member
-from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskCreate, TaskResponse
+from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 from app.services.task_service import (
     create_task,
     get_tasks_by_room,
@@ -33,7 +32,7 @@ def verify_room_membership(
         .filter(
             Member.room_id == room_id,
             Member.user_id == user_id,
-            Member.is_active == True,
+            Member.is_active.is_(True),
         )
         .first()
     )
@@ -44,6 +43,28 @@ def verify_room_membership(
             detail="Room not found or access denied.",
         )
 
+    return membership
+
+
+def verify_room_owner(
+    db: Session,
+    room_id: int,
+    user_id: int,
+):
+    membership = verify_room_membership(
+        db=db,
+        room_id=room_id,
+        user_id=user_id,
+    )
+
+    if membership.role != "owner":
+        raise HTTPException(
+            status_code=403,
+            detail="Only the room owner can manage tasks.",
+        )
+
+    return membership
+
 
 def get_authorized_task(
     db: Session,
@@ -52,13 +73,33 @@ def get_authorized_task(
 ):
     task = get_task(db, task_id)
 
-    if not task:
+    if not task or not task.is_active:
         raise HTTPException(
             status_code=404,
             detail="Task not found.",
         )
 
     verify_room_membership(
+        db=db,
+        room_id=task.room_id,
+        user_id=user_id,
+    )
+
+    return task
+
+
+def get_owner_authorized_task(
+    db: Session,
+    task_id: int,
+    user_id: int,
+):
+    task = get_authorized_task(
+        db=db,
+        task_id=task_id,
+        user_id=user_id,
+    )
+
+    verify_room_owner(
         db=db,
         room_id=task.room_id,
         user_id=user_id,
@@ -77,7 +118,7 @@ def create_task_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    verify_room_membership(
+    verify_room_owner(
         db=db,
         room_id=task_data.room_id,
         user_id=current_user.id,
@@ -126,29 +167,21 @@ def get_task_endpoint(
 )
 def update_task_endpoint(
     task_id: int,
-    name: str | None = None,
-    description: str | None = None,
-    frequency: str | None = None,
-    is_active: bool | None = None,
+    task_data: TaskUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    get_authorized_task(
+    get_owner_authorized_task(
         db=db,
         task_id=task_id,
         user_id=current_user.id,
     )
 
-    task = update_task(
+    return update_task(
         db=db,
         task_id=task_id,
-        name=name,
-        description=description,
-        frequency=frequency,
-        is_active=is_active,
+        task_data=task_data,
     )
-
-    return task
 
 
 @router.delete(
@@ -160,7 +193,7 @@ def deactivate_task_endpoint(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    get_authorized_task(
+    get_owner_authorized_task(
         db=db,
         task_id=task_id,
         user_id=current_user.id,
